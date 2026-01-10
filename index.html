@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Agujero Negro - Relatividad General</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            background: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        canvas {
+            display: block;
+            background: radial-gradient(ellipse at center, #0a0a15 0%, #000000 100%);
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #fff;
+            background: rgba(10, 10, 30, 0.9);
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(100, 150, 255, 0.3);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            max-width: 280px;
+            font-size: 11px;
+        }
+        #physics {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: #fff;
+            background: rgba(10, 10, 30, 0.9);
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(100, 255, 150, 0.3);
+            backdrop-filter: blur(10px);
+            max-width: 300px;
+            font-size: 10px;
+            line-height: 1.5;
+        }
+        h3 {
+            margin: 0 0 8px 0;
+            color: #6cf;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+        label {
+            color: #aaf;
+            display: block;
+            margin: 8px 0 3px 0;
+            font-size: 11px;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin: 3px 0;
+            accent-color: #6cf;
+            height: 4px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            margin: 8px 5px 0 0;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 10px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        .value {
+            color: #ffd700;
+            font-weight: bold;
+        }
+        .formula {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px 6px;
+            border-radius: 3px;
+            margin: 3px 0;
+            font-family: 'Courier New', monospace;
+            color: #0f0;
+            font-size: 9px;
+            border-left: 2px solid #0f0;
+        }
+        .stat {
+            margin: 5px 0;
+            padding: 4px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 3px;
+            font-size: 10px;
+        }
+        .stat strong {
+            font-size: 9px;
+            color: #8cf;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #aaf;
+            background: rgba(10, 10, 30, 0.8);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div id="controls">
+        <h3>⚫ PARÁMETROS DEL AGUJERO NEGRO</h3>
+        
+        <label>Masa: <span class="value" id="massValue">10</span> M☉</label>
+        <input type="range" id="mass" min="5" max="100" value="10" step="1">
+        
+        <label>Parámetro de Kerr (a): <span class="value" id="spinValue">0.5</span></label>
+        <input type="range" id="spin" min="0" max="0.998" value="0.5" step="0.001">
+        
+        <label>Ángulo de visión: <span class="value" id="angleValue">60</span>°</label>
+        <input type="range" id="viewAngle" min="0" max="90" value="60" step="1">
+        
+        <label>Densidad disco: <span class="value" id="densityValue">5000</span></label>
+        <input type="range" id="density" min="2000" max="10000" value="5000" step="500">
+        
+        <div>
+            <button id="resetBtn">↻ Resetear</button>
+            <button id="toggleJets">⚡ Jets</button>
+        </div>
+    </div>
+    
+    <div id="physics">
+        <h3>📐 FÍSICA RELATIVISTA</h3>
+        
+        <div class="stat">
+            <strong>Radio de Schwarzschild:</strong><br>
+            <div class="formula">r<sub>s</sub> = 2GM/c² = <span class="value" id="rs">0</span> km</div>
+        </div>
+        
+        <div class="stat">
+            <strong>Radio del horizonte (Kerr):</strong><br>
+            <div class="formula">r<sub>+</sub> = GM/c² + √((GM/c²)² - a²) = <span class="value" id="rplus">0</span> km</div>
+        </div>
+        
+        <div class="stat">
+            <strong>ISCO (Órbita circular estable):</strong><br>
+            <div class="formula">r<sub>ISCO</sub> = <span class="value" id="isco">0</span> km</div>
+        </div>
+        
+        <div class="stat">
+            <strong>Vel. orbital (Kepleriana):</strong><br>
+            <div class="formula">v = √(GM/r) · c</div>
+        </div>
+        
+        <div class="stat">
+            <strong>Dilatación temporal:</strong><br>
+            <div class="formula">t' = t/√(1 - r<sub>s</sub>/r) = <span class="value" id="timedilation">1.00</span>x</div>
+        </div>
+    </div>
+    
+    <div id="info">
+        <div>FPS: <span class="value" id="fps">60</span></div>
+        <div>Partículas activas: <span class="value" id="activeParticles">0</span></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        // Constantes físicas (unidades geométricas: G=c=1)
+        const G = 1;
+        const c = 1;
+        const SOLAR_MASS_KM = 1.477; // km (radio gravitacional)
+        
+        // Parámetros del agujero negro
+        let M = 10; // Masas solares
+        let a = 0.5; // Parámetro de Kerr (momento angular) [0, 1)
+        let viewAngle = 60; // grados
+        let particleDensity = 5000;
+        let showJets = true;
+        
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const scale = 2; // píxeles por km
+        
+        // Métricas calculadas
+        let rs, rPlus, rMinus, rISCO, rPhoton;
+        
+        function calculateMetrics() {
+            // Radio de Schwarzschild: rs = 2GM/c²
+            rs = 2 * G * M;
+            
+            // Agujero negro de Kerr
+            // r± = GM/c² ± √((GM/c²)² - a²)
+            const term = Math.sqrt(Math.pow(G * M, 2) - Math.pow(a * G * M, 2));
+            rPlus = G * M + term; // Horizonte externo
+            rMinus = G * M - term; // Horizonte interno
+            
+            // ISCO para agujero negro de Kerr (aproximación)
+            const Z1 = 1 + Math.pow(1 - a*a, 1/3) * (Math.pow(1 + a, 1/3) + Math.pow(1 - a, 1/3));
+            const Z2 = Math.sqrt(3*a*a + Z1*Z1);
+            rISCO = G * M * (3 + Z2 - Math.sqrt((3 - Z1) * (3 + Z1 + 2*Z2)));
+            
+            // Esfera de fotones
+            rPhoton = 1.5 * rs * (1 + Math.cos((2/3) * Math.acos(-a)));
+            
+            // Actualizar UI
+            document.getElementById('rs').textContent = (rs * SOLAR_MASS_KM * M).toFixed(1);
+            document.getElementById('rplus').textContent = (rPlus * SOLAR_MASS_KM * M).toFixed(1);
+            document.getElementById('isco').textContent = (rISCO * SOLAR_MASS_KM * M).toFixed(1);
+            
+            // Dilatación temporal en el ISCO
+            const timeDilation = 1 / Math.sqrt(1 - rs / rISCO);
+            document.getElementById('timedilation').textContent = timeDilation.toFixed(2);
+        }
+        
+        // Clase de partícula con física realista
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            
+            reset() {
+                // Distribución realista: más partículas cerca del ISCO
+                const u = Math.random();
+                this.r = rISCO + Math.pow(u, 0.3) * (rISCO * 4);
+                this.theta = Math.random() * Math.PI * 2;
+                
+                // Velocidad orbital kepleriana: v = √(GM/r)
+                this.omega = Math.sqrt(G * M / Math.pow(this.r, 3));
+                
+                // Corrección relativista por spin del agujero negro
+                this.omega *= (1 + a * Math.sqrt(G * M / Math.pow(this.r, 3)));
+                
+                // Altura gaussiana
+                const sigma = 0.1 * this.r;
+                this.z = (Math.random() - 0.5) * 2 * sigma;
+                
+                // Propiedades visuales
+                this.brightness = 0.3 + Math.random() * 0.7;
+                this.size = 0.5 + Math.random() * 1.5;
+                
+                // Tiempo de vida
+                this.life = 1.0;
+                this.maxLife = 100 + Math.random() * 200;
+            }
+            
+            update(dt) {
+                // Actualizar ángulo orbital
+                this.theta += this.omega * dt;
+                if (this.theta > Math.PI * 2) this.theta -= Math.PI * 2;
+                
+                // Fricción con el disco causa espiral hacia adentro
+                const frictionFactor = 0.001 * (rISCO / this.r);
+                this.r -= frictionFactor * dt;
+                
+                // Actualizar velocidad angular
+                this.omega = Math.sqrt(G * M / Math.pow(this.r, 3)) * 
+                             (1 + a * Math.sqrt(G * M / Math.pow(this.r, 3)));
+                
+                // Si cruza el horizonte de eventos, resetear
+                if (this.r < rPlus) {
+                    this.reset();
+                }
+                
+                this.life += dt;
+            }
+            
+            getTemperature() {
+                // Temperatura del disco: T ∝ r^(-3/4)
+                // Más caliente cerca del agujero negro
+                return Math.pow(rISCO * 5 / this.r, 0.75);
+            }
+            
+            draw() {
+                // Proyección 3D a 2D
+                const angleRad = viewAngle * Math.PI / 180;
+                const cosAngle = Math.cos(angleRad);
+                
+                const x = centerX + this.r * Math.cos(this.theta) * scale;
+                const y = centerY + (this.r * Math.sin(this.theta) * cosAngle + this.z) * scale;
+                
+                // Color basado en temperatura (radiación de cuerpo negro)
+                const temp = this.getTemperature();
+                let r, g, b;
+                
+                if (temp > 2.0) {
+                    // Muy caliente: azul-blanco
+                    r = 200 + temp * 25;
+                    g = 200 + temp * 20;
+                    b = 255;
+                } else if (temp > 1.0) {
+                    // Caliente: blanco-amarillo
+                    r = 255;
+                    g = 200 + temp * 30;
+                    b = 100 + temp * 50;
+                } else {
+                    // Más frío: naranja-rojo
+                    r = 255;
+                    g = 80 + temp * 120;
+                    b = temp * 60;
+                }
+                
+                // Brillo relativista (beaming)
+                const doppler = 1 + (this.omega * this.r * Math.cos(this.theta)) / c;
+                const alpha = (0.3 + this.brightness * 0.7) * Math.pow(doppler, 3);
+                
+                // Dibujar partícula
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, this.size * 2);
+                gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha})`);
+                gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, this.size * 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        let particles = [];
+        
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < particleDensity; i++) {
+                particles.push(new Particle());
+            }
+        }
+        
+        // Campo estelar de fondo
+        const stars = [];
+        for (let i = 0; i < 400; i++) {
+            stars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 1.2,
+                brightness: 0.3 + Math.random() * 0.7
+            });
+        }
+        
+        function drawStars() {
+            stars.forEach(star => {
+                const twinkle = 0.8 + Math.sin(Date.now() * 0.001 + star.x) * 0.2;
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.brightness * twinkle})`;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        
+        function drawGravitationalLensing() {
+            // Efecto de lente gravitacional suave
+            const maxRadius = rPhoton * scale * 1.8;
+            
+            for (let i = 0; i < 5; i++) {
+                const radius = maxRadius * (1 - i * 0.15);
+                const alpha = 0.08 * (1 - i * 0.15);
+                
+                const gradient = ctx.createRadialGradient(
+                    centerX, centerY, radius * 0.7,
+                    centerX, centerY, radius
+                );
+                gradient.addColorStop(0, `rgba(80, 100, 200, ${alpha})`);
+                gradient.addColorStop(1, 'rgba(80, 100, 200, 0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        function drawEventHorizon() {
+            const horizonRadius = rPlus * scale;
+            
+            // Interior negro absoluto
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, horizonRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Borde del horizonte con gradiente
+            const gradient = ctx.createRadialGradient(
+                centerX, centerY, horizonRadius - 2,
+                centerX, centerY, horizonRadius + 4
+            );
+            gradient.addColorStop(0, 'rgba(255, 120, 0, 0)');
+            gradient.addColorStop(0.5, 'rgba(255, 80, 0, 0.6)');
+            gradient.addColorStop(1, 'rgba(255, 40, 0, 0)');
+            
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, horizonRadius, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        
+        function drawPhotonSphere() {
+            const photonRadius = rPhoton * scale;
+            
+            // Anillo de fotones sutil
+            ctx.strokeStyle = 'rgba(255, 220, 150, 0.25)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, photonRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function drawJets() {
+            if (!showJets) return;
+            
+            const time = Date.now() * 0.0003;
+            const jetLength = rISCO * scale * 4;
+            const jetWidth = rPlus * scale * 0.3;
+            
+            for (let dir of [-1, 1]) {
+                for (let i = 0; i < 60; i++) {
+                    const t = i / 60;
+                    const wobble = Math.sin(time * 2 + i * 0.3) * jetWidth * t;
+                    const x = centerX + wobble;
+                    const y = centerY + dir * (rPlus * scale + t * jetLength);
+                    const alpha = (1 - t) * 0.4;
+                    const size = 1 + t * 2.5;
+                    
+                    const gradient = ctx.createRadialGradient(x, y, 0, x, y, size * 2);
+                    gradient.addColorStop(0, `rgba(100, 180, 255, ${alpha})`);
+                    gradient.addColorStop(1, `rgba(100, 180, 255, 0)`);
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size * 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        
+        let lastTime = performance.now();
+        let frameCount = 0;
+        let lastFpsUpdate = performance.now();
+        
+        function animate(currentTime) {
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.05); // Cap dt
+            lastTime = currentTime;
+            
+            // FPS
+            frameCount++;
+            if (currentTime - lastFpsUpdate > 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastFpsUpdate = currentTime;
+            }
+            
+            // Limpiar
+            ctx.fillStyle = 'rgba(5, 5, 15, 0.95)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Renderizar
+            drawStars();
+            drawGravitationalLensing();
+            drawJets();
+            
+            // Partículas (ordenar por profundidad)
+            particles.sort((a, b) => b.z - a.z);
+            particles.forEach(p => {
+                p.update(dt);
+                p.draw();
+            });
+            
+            document.getElementById('activeParticles').textContent = particles.length;
+            
+            drawPhotonSphere();
+            drawEventHorizon();
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Controles
+        document.getElementById('mass').addEventListener('input', (e) => {
+            M = parseFloat(e.target.value);
+            document.getElementById('massValue').textContent = M;
+            calculateMetrics();
+            initParticles();
+        });
+        
+        document.getElementById('spin').addEventListener('input', (e) => {
+            a = parseFloat(e.target.value);
+            document.getElementById('spinValue').textContent = a.toFixed(3);
+            calculateMetrics();
+            initParticles();
+        });
+        
+        document.getElementById('viewAngle').addEventListener('input', (e) => {
+            viewAngle = parseFloat(e.target.value);
+            document.getElementById('angleValue').textContent = viewAngle;
+        });
+        
+        document.getElementById('density').addEventListener('input', (e) => {
+            particleDensity = parseInt(e.target.value);
+            document.getElementById('densityValue').textContent = particleDensity;
+            initParticles();
+        });
+        
+        document.getElementById('resetBtn').addEventListener('click', initParticles);
+        document.getElementById('toggleJets').addEventListener('click', () => {
+            showJets = !showJets;
+        });
+        
+        // Inicializar
+        calculateMetrics();
+        initParticles();
+        animate(performance.now());
+    </script>
+</body>
+</html>
