@@ -156,65 +156,42 @@ function drawGravitationalLensing() {
 
 /* ================= HORIZONTE KERR ================= */
 function drawEventHorizon() {
-    const baseR = rPlus * scale * 2.8 * 1.2;
-    const angleRad = viewAngle * Math.PI / 180;
+    const R = rs * scale * 2.6; // radio de la sombra
+    const angle = viewAngle * Math.PI / 180;
+    const flatten = Math.cos(angle);
 
-    ctx.fillStyle = "#000";
+    // Gradiente esférico (iluminación)
+    const grad = ctx.createRadialGradient(
+        centerX - R * 0.3,
+        centerY - R * 0.2,
+        R * 0.2,
+        centerX,
+        centerY,
+        R
+    );
+
+    grad.addColorStop(0, "rgba(20,20,30,0.95)");
+    grad.addColorStop(0.6, "rgba(0,0,0,0.98)");
+    grad.addColorStop(1, "rgba(0,0,0,1)");
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.scale(1, flatten);
+
+    ctx.fillStyle = grad;
     ctx.beginPath();
-
-    for (let i = 0; i <= 360; i++) {
-        const t = i * Math.PI / 180;
-        const drag = a * Math.cos(t) * 0.35;
-        const r = baseR * (1 + drag);
-        const x = centerX + r * Math.cos(t);
-        const y = centerY + r * Math.sin(t) * Math.cos(angleRad);
-
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
+    ctx.arc(0, 0, R, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = "rgba(255,100,0,0.4)";
-    ctx.lineWidth = 3;
+    ctx.restore();
+
+    // Borde (terminador relativista)
+    ctx.strokeStyle = "rgba(255,120,80,0.35)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, R, R * flatten, 0, 0, Math.PI * 2);
     ctx.stroke();
 }
-
-/* ================= LOOP ================= */
-let last = performance.now();
-let fpsC = 0, fpsT = last;
-
-function animate(t) {
-    const dt = Math.min((t - last) / 1000, 0.05);
-    last = t;
-
-    ctx.fillStyle = "rgba(5,5,15,0.9)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    drawStars();
-    drawGravitationalLensing();
-
-    particles.sort((a, b) => b.z - a.z);
-    particles.forEach(p => { p.update(dt); p.draw(); });
-
-    drawEventHorizon();
-
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = 0.08;
-    ctx.drawImage(canvas, 0, 0);
-    ctx.globalCompositeOperation = "source-over";
-    ctx.globalAlpha = 1;
-
-    fpsC++;
-    if (t - fpsT > 1000) {
-        document.getElementById("fps").textContent = fpsC;
-        document.getElementById("activeParticles").textContent = particles.length;
-        fpsC = 0; fpsT = t;
-    }
-
-    requestAnimationFrame(animate);
-}
-
 /* ================= INIT ================= */
 calculateMetrics();
 initParticles();
