@@ -2,183 +2,223 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Simulador de Agujero Negro – Gargantúa Relativista</title>
+<title>Simulador de Agujero Negro – Kerr Relativista Pro</title>
+
 <style>
-    body { margin:0; overflow:hidden; background:#000; font-family: 'Consolas', monospace; }
-    canvas { display:block; }
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: black;
+        font-family: Consolas, monospace;
+    }
+
+    canvas { display: block; }
+
     #info {
-        position:absolute; top:20px; left:20px;
-        color:#fff; font-size:12px; letter-spacing: 1px;
-        background:rgba(10,10,30,0.8);
-        padding:15px; border-radius:4px;
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: #fff;
+        font-size: 12px;
+        letter-spacing: 1px;
+        background: rgba(10,10,30,0.8);
+        padding: 15px;
+        border-radius: 4px;
+        border-left: 3px solid #ffcc00;
         backdrop-filter: blur(8px);
-        border-left: 3px solid #ffcc00; /* Borde amarillo para resaltar */
         pointer-events: none;
         text-transform: uppercase;
         box-shadow: 0 0 15px rgba(0,0,0,0.5);
     }
-    .val { color: #00e6e6; font-weight: bold; } /* Color cian para los valores */
+
+    .val { color: #00e6e6; font-weight: bold; }
 </style>
 </head>
+
 <body>
 
 <canvas id="canvas"></canvas>
+
 <div id="info">
-    <strong>Simulador de Agujero Negro - Kerr Relativista Pro</strong><br><br>
+    <strong>Simulador de Agujero Negro – Kerr</strong><br><br>
     FPS: <span id="fps" class="val">0</span><br>
     Partículas: <span id="activeParticles" class="val">0</span><br>
     Spin (a): <span class="val">0.99</span>
 </div>
 
 <script>
+/* ==========================================================
+   CONFIGURACIÓN DE CANVAS (HD REAL)
+========================================================== */
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = innerWidth * dpr;
+    canvas.height = innerHeight * dpr;
+    canvas.style.width = innerWidth + "px";
+    canvas.style.height = innerHeight + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-window.addEventListener('resize', resize);
+window.addEventListener("resize", resize);
 resize();
 
-/* --- CONSTANTES Y PARÁMETROS --- */
-const G = 1, c = 1, M = 30, a = 0.99, scale = 6; 
-let rs, rPlus, rISCO, centerX, centerY;
+/* ==========================================================
+   CONSTANTES FÍSICAS (ESCALADAS)
+========================================================== */
+const G = 1, c = 1;
+const M = 30;
+const a = 0.99;
+const scale = 6;
+
+let rs, rPlus, rISCO, cx, cy;
 
 function calculateMetrics() {
-    centerX = canvas.width / 2;
-    centerY = canvas.height / 2;
+    cx = innerWidth / 2;
+    cy = innerHeight / 2;
     rs = 2 * G * M;
     rPlus = G * M * (1 + Math.sqrt(1 - a * a));
-    rISCO = rs * 2.5; // Ajustado para un disco de acreción más visible
+    rISCO = rs * 2.5;
+}
+calculateMetrics();
+
+/* ==========================================================
+   ESTRELLAS DE FONDO (CANVAS ESTÁTICO)
+========================================================== */
+const stars = Array.from({ length: 400 }, () => ({
+    x: Math.random() * innerWidth,
+    y: Math.random() * innerHeight,
+    r: Math.random() * 1.5,
+    a: 0.2 + Math.random() * 0.6
+}));
+
+function drawStars() {
+    for (const s of stars) {
+        ctx.globalAlpha = s.a;
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(s.x, s.y, s.r, s.r);
+    }
+    ctx.globalAlpha = 1;
 }
 
-/* --- PARTÍCULAS DEL DISCO DE ACRECIÓN --- */
+/* ==========================================================
+   PARTÍCULAS DEL DISCO DE ACRECIÓN
+========================================================== */
 class Particle {
     constructor() { this.reset(); }
 
     reset() {
-        // Generar partículas en un rango más amplio para un disco más grande
-        this.r = rISCO * 0.8 + Math.random() * rISCO * 6; 
+        this.r = rISCO * 0.9 + Math.random() * rISCO * 6;
         this.theta = Math.random() * Math.PI * 2;
-        this.z = (Math.random() - 0.5) * 4; // Mayor variación en Z para un disco más "espeso"
-        this.size = 0.8 + Math.random() * 2.5; // Partículas más grandes y variadas
-        this.speed = (0.01 + Math.random() * 0.02) * Math.pow(rISCO/this.r, 1.8); // Velocidad variable
+        this.size = 0.8 + Math.random() * 2.5;
+        this.speed = (0.01 + Math.random() * 0.02) * Math.pow(rISCO / this.r, 1.7);
+        this.updateTrig();
+    }
+
+    updateTrig() {
+        this.sin = Math.sin(this.theta);
+        this.cos = Math.cos(this.theta);
     }
 
     update() {
         this.theta += this.speed;
-        this.r -= 0.005; // Caída gradual hacia el horizonte
-        if (this.r < rPlus * 0.8) this.reset(); // Reiniciar si caen muy adentro
+        this.r -= 0.003;
+        this.updateTrig();
+
+        if (this.r < rPlus * 0.85) this.reset();
     }
 
     draw() {
-        let x_raw = Math.cos(this.theta) * this.r;
-        let y_raw = Math.sin(this.theta) * this.r;
-        
-        // Simulación de Lente Gravitacional: Curva la luz de la parte trasera del disco
-        let bendingEffect = 0;
-        if (y_raw < 0) { // Si la partícula está "detrás" del agujero
-            bendingEffect = Math.pow(Math.abs(y_raw) / (rISCO * 5), 0.7) * rISCO * 2.5; 
-        }
+        const x = this.cos * this.r;
+        const y = this.sin * this.r;
 
-        const screenX = centerX + x_raw * scale;
-        // Ajuste vertical y aplicación del efecto de lente
-        const screenY = centerY + (y_raw * 0.25) * scale - bendingEffect * scale * 0.5;
+        // Lente gravitacional ~ 1/r²
+        const lens = (rISCO * 12) / (this.r * this.r);
 
-        // Color basado en distancia y efecto Doppler
-        const distRatio = Math.max(0, Math.min(1, (this.r - rISCO * 0.8) / (rISCO * 5))); // 0 a 1
-        const dopplerShift = 0.8 + Math.sin(this.theta + Math.PI/2) * 0.2; // Intensidad variable según dirección
+        const sx = cx + x * scale;
+        const sy = cy + y * 0.25 * scale - lens * scale;
 
-        let r = 255;
-        let g = 100 + 150 * (1 - distRatio); // Más rojo/naranja en el exterior
-        let b = 50 + 200 * (1 - distRatio); // Más azul/blanco en el interior
+        // Doppler relativista (aprox)
+        const doppler = 1 - this.sin * 0.35;
 
-        // Aplicar el efecto Doppler al brillo
-        r *= dopplerShift; g *= dopplerShift; b *= dopplerShift;
+        let r = 255 * doppler;
+        let g = (120 + 135 * (rISCO / this.r)) * doppler;
+        let b = (80 + 160 * (rISCO / this.r)) * doppler;
 
-        // Efecto de resplandor (bloom)
-        ctx.fillStyle = `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+        ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
         ctx.shadowBlur = this.size * 2;
-        ctx.shadowColor = `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)}, 0.7)`;
-        
+        ctx.shadowColor = ctx.fillStyle;
+
         ctx.beginPath();
-        ctx.arc(screenX, screenY, this.size, 0, Math.PI * 2);
+        ctx.arc(sx, sy, this.size, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0; // Reset para no afectar otros elementos
+
+        ctx.shadowBlur = 0;
     }
 }
 
-let particles = [];
-const numParticles = 2500; // Aumentar número de partículas para mayor densidad
-for (let i = 0; i < numParticles; i++) particles.push(new Particle());
-
-/* --- ESTRELLAS DE FONDO --- */
-const stars = Array.from({ length: 400 }, () => ({
-    x: Math.random() * canvas.width,
-    y: Math.random() * canvas.height,
-    size: Math.random() * 1.8,
-    alpha: 0.2 + Math.random() * 0.6 // Variar el brillo de las estrellas
-}));
-
-function drawStars() {
-    ctx.fillStyle = "#fff";
-    stars.forEach(s => {
-        ctx.globalAlpha = s.alpha;
-        ctx.fillRect(s.x, s.y, s.size, s.size);
-    });
-    ctx.globalAlpha = 1;
+/* ==========================================================
+   CREACIÓN DE PARTÍCULAS
+========================================================== */
+const particles = [];
+const NUM = 2500;
+for (let i = 0; i < NUM; i++) {
+    const p = new Particle();
+    for (let j = 0; j < 30; j++) p.update(); // precalentado
+    particles.push(p);
 }
 
-/* --- DIBUJO DEL AGUJERO NEGRO CENTRAL --- */
+/* ==========================================================
+   AGUJERO NEGRO CENTRAL
+========================================================== */
 function drawBlackHole() {
-    // Sombra del horizonte de sucesos
-    ctx.shadowBlur = 100; // Mayor desenfoque para un efecto de "halo"
-    ctx.shadowColor = "rgba(0,0,0,1)";
+    ctx.shadowBlur = 100;
+    ctx.shadowColor = "black";
     ctx.fillStyle = "black";
     ctx.beginPath();
-    ctx.arc(centerX, centerY, rPlus * scale * 0.8, 0, Math.PI * 2); // Un poco más pequeño
+    ctx.arc(cx, cy, rPlus * scale * 0.8, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
-    
-    // Anillo de fotones (efecto sutil)
-    ctx.strokeStyle = "rgba(255,255,255,0.1)";
-    ctx.lineWidth = 1;
+
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
     ctx.beginPath();
-    ctx.arc(centerX, centerY, rPlus * scale * 1.1, 0, Math.PI * 2);
+    ctx.arc(cx, cy, rPlus * scale * 1.1, 0, Math.PI * 2);
     ctx.stroke();
 }
 
-/* --- LOOP DE ANIMACIÓN --- */
-let lastTime = 0;
-function animate(currentTime) {
-    const dt = (currentTime - lastTime) / 1000; // Delta time en segundos
-    lastTime = currentTime;
+/* ==========================================================
+   LOOP DE ANIMACIÓN
+========================================================== */
+let last = 0;
+function animate(t) {
+    const dt = (t - last) / 1000;
+    last = t;
 
-    // Fondo con estela de movimiento y estrellas
-    ctx.fillStyle = "rgba(0, 0, 0, 0.1)"; // Menos opaco para una estela más suave
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "rgba(0,0,0,0.12)";
+    ctx.fillRect(0, 0, innerWidth, innerHeight);
+
     drawStars();
 
-    // Ordenar partículas para la perspectiva 3D (las de "atrás" se dibujan primero)
-    particles.sort((a, b) => Math.sin(a.theta) - Math.sin(b.theta));
-
-    particles.forEach(p => {
+    // Partículas traseras
+    for (const p of particles) {
         p.update();
-        p.draw();
-    });
+        if (p.sin < 0) p.draw();
+    }
 
     drawBlackHole();
 
-    // Actualizar UI (FPS y Partículas)
-    document.getElementById("fps").innerText = Math.round(1 / dt); // FPS
+    // Partículas delanteras
+    for (const p of particles) {
+        if (p.sin >= 0) p.draw();
+    }
+
+    document.getElementById("fps").innerText = Math.round(1 / dt);
     document.getElementById("activeParticles").innerText = particles.length;
 
     requestAnimationFrame(animate);
 }
 
-/* --- INICIALIZACIÓN --- */
-calculateMetrics();
 animate();
 </script>
 </body>
