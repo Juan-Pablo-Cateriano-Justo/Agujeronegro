@@ -2,54 +2,49 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Simulador de Agujero Negro – Kerr Relativista Pro</title>
+<title>Simulador de Agujero Negro – Gargantúa</title>
 
 <style>
-    body {
-        margin: 0;
-        overflow: hidden;
-        background: black;
-        font-family: Consolas, monospace;
-    }
+body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+    font-family: Consolas, monospace;
+}
+canvas { display: block; }
 
-    canvas { display: block; }
-
-    #info {
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        color: #fff;
-        font-size: 12px;
-        letter-spacing: 1px;
-        background: rgba(10,10,30,0.8);
-        padding: 15px;
-        border-radius: 4px;
-        border-left: 3px solid #ffcc00;
-        backdrop-filter: blur(8px);
-        pointer-events: none;
-        text-transform: uppercase;
-        box-shadow: 0 0 15px rgba(0,0,0,0.5);
-    }
-
-    .val { color: #00e6e6; font-weight: bold; }
+#info {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: #fff;
+    font-size: 12px;
+    background: rgba(10,10,30,0.85);
+    padding: 14px;
+    border-left: 3px solid #ffcc00;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    box-shadow: 0 0 15px rgba(0,0,0,0.6);
+    pointer-events: none;
+}
+.val { color: #00e6e6; font-weight: bold; }
 </style>
 </head>
 
 <body>
-
 <canvas id="canvas"></canvas>
 
 <div id="info">
-    <strong>Simulador de Agujero Negro – Kerr</strong><br><br>
-    FPS: <span id="fps" class="val">0</span><br>
-    Partículas: <span id="activeParticles" class="val">0</span><br>
-    Spin (a): <span class="val">0.99</span>
+<strong>Agujero Negro Kerr</strong><br><br>
+FPS: <span id="fps" class="val">0</span><br>
+Partículas: <span class="val">2500</span><br>
+Spin (a): <span class="val">0.99</span>
 </div>
 
 <script>
-/* ==========================================================
-   CONFIGURACIÓN DE CANVAS (HD REAL)
-========================================================== */
+/* =====================================================
+   CANVAS HD
+===================================================== */
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -61,12 +56,12 @@ function resize() {
     canvas.style.height = innerHeight + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-window.addEventListener("resize", resize);
+addEventListener("resize", resize);
 resize();
 
-/* ==========================================================
+/* =====================================================
    CONSTANTES FÍSICAS (ESCALADAS)
-========================================================== */
+===================================================== */
 const G = 1, c = 1;
 const M = 30;
 const a = 0.99;
@@ -74,18 +69,18 @@ const scale = 6;
 
 let rs, rPlus, rISCO, cx, cy;
 
-function calculateMetrics() {
+function computeMetrics() {
     cx = innerWidth / 2;
     cy = innerHeight / 2;
     rs = 2 * G * M;
-    rPlus = G * M * (1 + Math.sqrt(1 - a * a));
+    rPlus = G * M * (1 + Math.sqrt(1 - a*a));
     rISCO = rs * 2.5;
 }
-calculateMetrics();
+computeMetrics();
 
-/* ==========================================================
-   ESTRELLAS DE FONDO (CANVAS ESTÁTICO)
-========================================================== */
+/* =====================================================
+   FONDO DE ESTRELLAS
+===================================================== */
 const stars = Array.from({ length: 400 }, () => ({
     x: Math.random() * innerWidth,
     y: Math.random() * innerHeight,
@@ -102,9 +97,9 @@ function drawStars() {
     ctx.globalAlpha = 1;
 }
 
-/* ==========================================================
-   PARTÍCULAS DEL DISCO DE ACRECIÓN
-========================================================== */
+/* =====================================================
+   PARTÍCULAS DEL DISCO
+===================================================== */
 class Particle {
     constructor() { this.reset(); }
 
@@ -125,7 +120,6 @@ class Particle {
         this.theta += this.speed;
         this.r -= 0.003;
         this.updateTrig();
-
         if (this.r < rPlus * 0.85) this.reset();
     }
 
@@ -143,8 +137,8 @@ class Particle {
         const doppler = 1 - this.sin * 0.35;
 
         let r = 255 * doppler;
-        let g = (120 + 135 * (rISCO / this.r)) * doppler;
-        let b = (80 + 160 * (rISCO / this.r)) * doppler;
+        let g = (130 + 140 * (rISCO / this.r)) * doppler;
+        let b = (90 + 170 * (rISCO / this.r)) * doppler;
 
         ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
         ctx.shadowBlur = this.size * 2;
@@ -158,38 +152,76 @@ class Particle {
     }
 }
 
-/* ==========================================================
+/* =====================================================
    CREACIÓN DE PARTÍCULAS
-========================================================== */
+===================================================== */
 const particles = [];
-const NUM = 2500;
-for (let i = 0; i < NUM; i++) {
+for (let i = 0; i < 2500; i++) {
     const p = new Particle();
-    for (let j = 0; j < 30; j++) p.update(); // precalentado
+    for (let j = 0; j < 30; j++) p.update();
     particles.push(p);
 }
 
-/* ==========================================================
-   AGUJERO NEGRO CENTRAL
-========================================================== */
+/* =====================================================
+   RADIACIÓN DEL DISCO
+===================================================== */
+function drawAccretionGlow() {
+    const R = rISCO * scale * 0.95;
+    const g = ctx.createRadialGradient(cx, cy, rPlus * scale, cx, cy, R);
+
+    g.addColorStop(0.0, "rgba(255,255,255,0)");
+    g.addColorStop(0.35, "rgba(180,220,255,0.18)");
+    g.addColorStop(0.65, "rgba(120,180,255,0.12)");
+    g.addColorStop(1.0, "rgba(0,0,0,0)");
+
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+/* =====================================================
+   AGUJERO NEGRO REALISTA
+===================================================== */
 function drawBlackHole() {
-    ctx.shadowBlur = 100;
-    ctx.shadowColor = "black";
+    const shadowR = rPlus * scale * 1.6;
+    const horizonR = rPlus * scale * 0.85;
+
+    const grad = ctx.createRadialGradient(
+        cx, cy, horizonR * 0.2,
+        cx, cy, shadowR
+    );
+
+    grad.addColorStop(0.0, "rgba(0,0,0,1)");
+    grad.addColorStop(0.45, "rgba(0,0,0,1)");
+    grad.addColorStop(0.7, "rgba(0,0,0,0.9)");
+    grad.addColorStop(1.0, "rgba(0,0,0,0)");
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, shadowR, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.fillStyle = "black";
     ctx.beginPath();
-    ctx.arc(cx, cy, rPlus * scale * 0.8, 0, Math.PI * 2);
+    ctx.arc(cx, cy, horizonR, 0, Math.PI * 2);
     ctx.fill();
-    ctx.shadowBlur = 0;
+}
 
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+/* =====================================================
+   ANILLO DE FOTONES
+===================================================== */
+function drawPhotonRing() {
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.arc(cx, cy, rPlus * scale * 1.1, 0, Math.PI * 2);
+    ctx.arc(cx, cy, rPlus * scale * 1.15, 0, Math.PI * 2);
     ctx.stroke();
 }
 
-/* ==========================================================
-   LOOP DE ANIMACIÓN
-========================================================== */
+/* =====================================================
+   LOOP PRINCIPAL
+===================================================== */
 let last = 0;
 function animate(t) {
     const dt = (t - last) / 1000;
@@ -200,25 +232,24 @@ function animate(t) {
 
     drawStars();
 
-    // Partículas traseras
+    // Disco trasero
     for (const p of particles) {
         p.update();
         if (p.sin < 0) p.draw();
     }
 
+    drawAccretionGlow();
     drawBlackHole();
+    drawPhotonRing();
 
-    // Partículas delanteras
+    // Disco delantero
     for (const p of particles) {
         if (p.sin >= 0) p.draw();
     }
 
     document.getElementById("fps").innerText = Math.round(1 / dt);
-    document.getElementById("activeParticles").innerText = particles.length;
-
     requestAnimationFrame(animate);
 }
-
 animate();
 </script>
 </body>
