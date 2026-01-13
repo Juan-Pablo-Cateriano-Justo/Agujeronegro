@@ -21,13 +21,13 @@ canvas { display: block; }
     font-size: 12px;
     background: rgba(10,10,30,0.85);
     padding: 14px;
-    border-left: 3px solid #ffcc00;
+    border-left: 3px solid #ff8800;
     letter-spacing: 1px;
     text-transform: uppercase;
     box-shadow: 0 0 15px rgba(0,0,0,0.6);
     pointer-events: none;
 }
-.val { color: #00e6e6; font-weight: bold; }
+.val { color: #ffae42; font-weight: bold; }
 </style>
 </head>
 
@@ -43,7 +43,7 @@ Spin (a): <span class="val">0.99</span>
 
 <script>
 /* =====================================================
-   CANVAS HD
+   CANVAS
 ===================================================== */
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -60,26 +60,23 @@ addEventListener("resize", resize);
 resize();
 
 /* =====================================================
-   CONSTANTES FÍSICAS (ESCALADAS)
+   MÉTRICAS
 ===================================================== */
-const G = 1, c = 1;
-const M = 30;
-const a = 0.99;
+const G = 1, M = 30, a = 0.99;
 const scale = 6;
-
 let rs, rPlus, rISCO, cx, cy;
 
 function computeMetrics() {
     cx = innerWidth / 2;
     cy = innerHeight / 2;
     rs = 2 * G * M;
-    rPlus = G * M * (1 + Math.sqrt(1 - a*a));
+    rPlus = G * M * (1 + Math.sqrt(1 - a * a));
     rISCO = rs * 2.5;
 }
 computeMetrics();
 
 /* =====================================================
-   FONDO DE ESTRELLAS
+   ESTRELLAS
 ===================================================== */
 const stars = Array.from({ length: 400 }, () => ({
     x: Math.random() * innerWidth,
@@ -98,7 +95,7 @@ function drawStars() {
 }
 
 /* =====================================================
-   PARTÍCULAS DEL DISCO
+   DISCO DE ACRECIÓN
 ===================================================== */
 class Particle {
     constructor() { this.reset(); }
@@ -126,19 +123,16 @@ class Particle {
     draw() {
         const x = this.cos * this.r;
         const y = this.sin * this.r;
-
-        // Lente gravitacional ~ 1/r²
         const lens = (rISCO * 12) / (this.r * this.r);
 
         const sx = cx + x * scale;
         const sy = cy + y * 0.25 * scale - lens * scale;
 
-        // Doppler relativista (aprox)
         const doppler = 1 - this.sin * 0.35;
 
         let r = 255 * doppler;
-        let g = (130 + 140 * (rISCO / this.r)) * doppler;
-        let b = (90 + 170 * (rISCO / this.r)) * doppler;
+        let g = (150 + 80 * (rISCO / this.r)) * doppler;
+        let b = (80 + 40 * (rISCO / this.r)) * doppler;
 
         ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
         ctx.shadowBlur = this.size * 2;
@@ -147,14 +141,10 @@ class Particle {
         ctx.beginPath();
         ctx.arc(sx, sy, this.size, 0, Math.PI * 2);
         ctx.fill();
-
         ctx.shadowBlur = 0;
     }
 }
 
-/* =====================================================
-   CREACIÓN DE PARTÍCULAS
-===================================================== */
 const particles = [];
 for (let i = 0; i < 2500; i++) {
     const p = new Particle();
@@ -163,41 +153,60 @@ for (let i = 0; i < 2500; i++) {
 }
 
 /* =====================================================
-   RADIACIÓN DEL DISCO
+   RADIACIÓN DE HAWKING
 ===================================================== */
-function drawAccretionGlow() {
-    const R = rISCO * scale * 0.95;
-    const g = ctx.createRadialGradient(cx, cy, rPlus * scale, cx, cy, R);
+class HawkingParticle {
+    constructor() { this.reset(); }
 
-    g.addColorStop(0.0, "rgba(255,255,255,0)");
-    g.addColorStop(0.35, "rgba(180,220,255,0.18)");
-    g.addColorStop(0.65, "rgba(120,180,255,0.12)");
-    g.addColorStop(1.0, "rgba(0,0,0,0)");
+    reset() {
+        this.theta = Math.random() * Math.PI * 2;
+        this.r = rPlus * scale * (0.9 + Math.random() * 0.1);
+        this.speed = 0.15 + Math.random() * 0.25;
+        this.life = 1;
+        this.size = 1 + Math.random() * 2;
+    }
 
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(cx, cy, R, 0, Math.PI * 2);
-    ctx.fill();
+    update() {
+        this.r += this.speed;
+        this.life -= 0.01;
+        if (this.life <= 0) this.reset();
+    }
+
+    draw() {
+        const x = cx + Math.cos(this.theta) * this.r;
+        const y = cy + Math.sin(this.theta) * this.r;
+
+        const heat = this.life;
+        const r = 255;
+        const g = 160 + 80 * heat;
+        const b = 80 * heat;
+
+        ctx.fillStyle = `rgba(${r},${g|0},${b|0},${heat})`;
+        ctx.shadowBlur = 15 * heat;
+        ctx.shadowColor = ctx.fillStyle;
+
+        ctx.beginPath();
+        ctx.arc(x, y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
 }
 
+const hawking = Array.from({ length: 120 }, () => new HawkingParticle());
+
 /* =====================================================
-   AGUJERO NEGRO REALISTA
+   AGUJERO NEGRO
 ===================================================== */
 function drawBlackHole() {
     const shadowR = rPlus * scale * 1.6;
     const horizonR = rPlus * scale * 0.85;
 
-    const grad = ctx.createRadialGradient(
-        cx, cy, horizonR * 0.2,
-        cx, cy, shadowR
-    );
+    const g = ctx.createRadialGradient(cx, cy, horizonR * 0.2, cx, cy, shadowR);
+    g.addColorStop(0, "#000");
+    g.addColorStop(0.7, "rgba(0,0,0,0.9)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
 
-    grad.addColorStop(0.0, "rgba(0,0,0,1)");
-    grad.addColorStop(0.45, "rgba(0,0,0,1)");
-    grad.addColorStop(0.7, "rgba(0,0,0,0.9)");
-    grad.addColorStop(1.0, "rgba(0,0,0,0)");
-
-    ctx.fillStyle = grad;
+    ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(cx, cy, shadowR, 0, Math.PI * 2);
     ctx.fill();
@@ -209,40 +218,30 @@ function drawBlackHole() {
 }
 
 /* =====================================================
-   ANILLO DE FOTONES
-===================================================== */
-function drawPhotonRing() {
-    ctx.strokeStyle = "rgba(255,255,255,0.15)";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, rPlus * scale * 1.15, 0, Math.PI * 2);
-    ctx.stroke();
-}
-
-/* =====================================================
-   LOOP PRINCIPAL
+   LOOP
 ===================================================== */
 let last = 0;
 function animate(t) {
     const dt = (t - last) / 1000;
     last = t;
 
-    ctx.fillStyle = "rgba(0,0,0,0.12)";
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
     ctx.fillRect(0, 0, innerWidth, innerHeight);
 
     drawStars();
 
-    // Disco trasero
     for (const p of particles) {
         p.update();
         if (p.sin < 0) p.draw();
     }
 
-    drawAccretionGlow();
-    drawBlackHole();
-    drawPhotonRing();
+    for (const h of hawking) {
+        h.update();
+        h.draw();
+    }
 
-    // Disco delantero
+    drawBlackHole();
+
     for (const p of particles) {
         if (p.sin >= 0) p.draw();
     }
