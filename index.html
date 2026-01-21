@@ -1,27 +1,29 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Simulador de Agujero Negro Kerr - Gargantúa Pro</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        canvas { display: block; }
-        #info {
-            position: absolute; top: 20px; left: 20px; color: #fff; font-size: 13px;
-            background: rgba(0, 0, 0, 0.7); padding: 15px; border-left: 4px solid #00d4ff;
-            pointer-events: none; border-radius: 0 8px 8px 0;
-        }
-        .val { color: #00d4ff; font-weight: bold; }
-        .label { color: #aaa; text-transform: uppercase; font-size: 10px; }
-    </style>
+<meta charset="UTF-8">
+<title>Simulador de Agujero Negro Kerr - Gargantúa Pro</title>
+<style>
+body { margin:0; overflow:hidden; background:#000; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;}
+canvas { display:block; }
+#info{
+    position:absolute; top:20px; left:20px; color:#fff; font-size:13px;
+    background:rgba(0,0,0,.7); padding:15px;
+    border-left:4px solid #00d4ff; border-radius:0 8px 8px 0;
+    pointer-events:none;
+}
+.val{color:#00d4ff;font-weight:bold;}
+.label{color:#aaa;font-size:10px;text-transform:uppercase;}
+</style>
 </head>
+
 <body>
 <div id="info">
-    <strong>SINGULARIDAD DE KERR</strong><br><br>
-    <span class="label">Estado:</span> <span class="val">Activo</span><br>
-    <span class="label">Radiación:</span> <span class="val">Jets Relativistas</span><br>
-    <span class="label">Spin (a):</span> <span class="val">0.99</span><br>
-    <span class="label">FPS:</span> <span id="fps" class="val">60</span>
+<strong>SINGULARIDAD DE KERR</strong><br><br>
+<span class="label">Estado:</span> <span class="val">Activo</span><br>
+<span class="label">Radiación:</span> <span class="val">Jets relativistas</span><br>
+<span class="label">Spin (a):</span> <span class="val">0.99</span><br>
+<span class="label">FPS:</span> <span id="fps" class="val">60</span>
 </div>
 
 <canvas id="canvas"></canvas>
@@ -30,172 +32,175 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-let width, height, cx, cy;
-const G = 1, M = 35, a = 0.99, scale = 7;
+let width,height,cx,cy;
+const G=1, M=35, a=0.99, scale=7;
 let rs, rPlus, rISCO;
 
-/* --- Energía del Agujero Negro --- */
+/* energía */
 let bhEnergy = 0;
 const energyDecay = 0.0004;
 
-function resize() {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-    cx = width / 2;
-    cy = height / 2;
-    rs = 2 * G * M;
-    rPlus = G * M * (1 + Math.sqrt(1 - a * a));
-    rISCO = rs * 2.5;
+/* horizonte */
+const eventHorizonFactor = 1.15;
+
+function resize(){
+    width = canvas.width = innerWidth;
+    height = canvas.height = innerHeight;
+    cx = width/2; cy = height/2;
+    rs = 2*G*M;
+    rPlus = G*M*(1+Math.sqrt(1-a*a));
+    rISCO = rs*2.5;
 }
-window.addEventListener("resize", resize);
+addEventListener("resize",resize);
 resize();
 
-/* --- Estrellas de Fondo --- */
-const stars = Array.from({ length: 300 }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
-    s: Math.random() * 2,
-    opacity: Math.random()
+/* estrellas */
+const stars = Array.from({length:300},()=>({
+    x:Math.random()*width,
+    y:Math.random()*height,
+    s:Math.random()*2,
+    o:Math.random()
 }));
 
-function drawStars() {
-    ctx.fillStyle = "white";
-    stars.forEach(s => {
-        ctx.globalAlpha = s.opacity;
-        ctx.fillRect(s.x, s.y, s.s, s.s);
+function drawStars(){
+    ctx.fillStyle="white";
+    stars.forEach(s=>{
+        ctx.globalAlpha=s.o;
+        ctx.fillRect(s.x,s.y,s.s,s.s);
     });
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha=1;
 }
 
-/* --- Jets Relativistas --- */
-class Jet {
-    constructor(dir) {
-        this.dir = dir;
-        this.reset();
+/* jets */
+class Jet{
+    constructor(dir){this.dir=dir; this.reset();}
+    reset(){
+        this.x=(Math.random()-.5)*15;
+        this.z=Math.random()*20;
+        this.speed=4+Math.random()*6;
+        this.life=1;
     }
-    reset() {
-        this.x = (Math.random() - 0.5) * 15;
-        this.z = Math.random() * 20;
-        this.speed = 4 + Math.random() * 6;
-        this.life = 1;
+    update(){
+        this.z+=this.speed*(1+bhEnergy*.05);
+        this.life-=.015;
+        if(this.life<=0) this.reset();
     }
-    update() {
-        this.z += this.speed * (1 + bhEnergy * 0.05);
-        this.life -= 0.015;
-        if (this.life <= 0) this.reset();
-    }
-    draw() {
-        const perspective = 400 / (400 + this.z);
-        const sx = cx + this.x * perspective;
-        const sy = cy - this.z * this.dir * scale * 0.8;
+    draw(){
+        const p=400/(400+this.z);
+        const x=cx+this.x*p;
+        const y=cy-this.z*this.dir*scale*.8;
+        const a=this.life*(.3+bhEnergy*.1);
 
-        const alpha = this.life * (0.3 + bhEnergy * 0.1);
-        ctx.fillStyle = `rgba(180,220,255,${alpha})`;
-        ctx.shadowBlur = 15 * alpha;
-        ctx.shadowColor = "#00a2ff";
-
+        ctx.fillStyle=`rgba(180,220,255,${a})`;
+        ctx.shadowBlur=15*a;
+        ctx.shadowColor="#00a2ff";
         ctx.beginPath();
-        ctx.arc(sx, sy, 3 * perspective, 0, Math.PI * 2);
+        ctx.arc(x,y,3*p,0,Math.PI*2);
         ctx.fill();
-
-        ctx.shadowBlur = 0;
+        ctx.shadowBlur=0;
     }
 }
-const jets = Array.from({ length: 80 }, (_, i) => new Jet(i % 2 === 0 ? 1 : -1));
+const jets=Array.from({length:80},(_,i)=>new Jet(i%2?1:-1));
 
-/* --- Disco de Acreción --- */
-class Particle {
-    constructor() { this.reset(); }
-    reset() {
-        this.r = rISCO * 0.8 + Math.random() * rISCO * 5;
-        this.theta = Math.random() * Math.PI * 2;
-        this.speed = (0.015 + Math.random() * 0.02) * Math.pow(rISCO / this.r, 1.5);
-        this.size = 1 + Math.random() * 2;
+/* disco */
+class Particle{
+    constructor(){this.reset();}
+    reset(){
+        this.r=rISCO*.8+Math.random()*rISCO*5;
+        this.theta=Math.random()*Math.PI*2;
+        this.speed=(.015+Math.random()*.02)*Math.pow(rISCO/this.r,1.5);
+        this.size=1+Math.random()*2;
+        this.fade=1;
     }
-    update() {
-        this.theta += this.speed * (1 + bhEnergy * 0.08);
-        this.r -= 0.005;
+    update(){
+        this.theta+=this.speed*(1+bhEnergy*.08);
+        this.r-=.005;
 
-        if (this.r < rPlus * 0.9) {
-            bhEnergy += 0.02; // el agujero se alimenta
-            this.reset();
+        const eventR=rPlus*eventHorizonFactor;
+
+        if(this.r<eventR){
+            this.size*=.97;
+            this.speed*=1.05;
+            this.fade*=.96;
+
+            if(this.size<.2||this.fade<.05){
+                bhEnergy+=.03;
+                this.reset();
+            }
         }
     }
-    draw() {
-        const sinT = Math.sin(this.theta);
-        const cosT = Math.cos(this.theta);
+    draw(){
+        const s=Math.sin(this.theta), c=Math.cos(this.theta);
+        const lens=(rISCO*10)/(this.r*1.2);
+        const x=cx+c*this.r*scale;
+        const y=cy+s*.25*this.r*scale-lens*scale*(s>0?1:-.5);
 
-        const lens = (rISCO * 10) / (this.r * 1.2);
-        const x = cx + cosT * this.r * scale;
-        const y = cy + sinT * 0.25 * this.r * scale - lens * scale * (sinT > 0 ? 1 : -0.5);
+        const dop=1-s*.4;
+        const d=Math.min(1,rISCO/this.r);
 
-        const doppler = 1 - sinT * 0.4;
-        const dist = Math.min(1, rISCO / this.r);
+        const r=255*dop;
+        const g=(140+115*d)*dop;
+        const b=(50+50*d)*dop;
 
-        const r = 255 * doppler;
-        const g = (140 + 115 * dist) * doppler;
-        const b = (50 + 50 * dist) * doppler;
-
-        ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
+        ctx.fillStyle=`rgba(${r|0},${g|0},${b|0},${this.fade})`;
         ctx.beginPath();
-        ctx.arc(x, y, this.size, 0, Math.PI * 2);
+        ctx.arc(x,y,this.size,0,Math.PI*2);
         ctx.fill();
     }
 }
-const particles = Array.from({ length: 2500 }, () => new Particle());
+const particles=Array.from({length:2500},()=>new Particle());
 
-/* --- Agujero Negro --- */
-function drawBlackHole() {
-    const horizonR = rPlus * scale;
+/* agujero negro */
+function drawBlackHole(){
+    const singularityR=rPlus*scale;
+    const eventR=singularityR*eventHorizonFactor;
 
-    const glowPower = Math.min(1.2, 0.6 + bhEnergy * 0.15);
-    const glow = ctx.createRadialGradient(cx, cy, horizonR * 0.9, cx, cy, horizonR * 1.1);
-    glow.addColorStop(0, "black");
-    glow.addColorStop(0.5, `rgba(255,160,60,${glowPower})`);
-    glow.addColorStop(1, "transparent");
-
-    ctx.fillStyle = glow;
+    /* horizonte de eventos */
+    const h=ctx.createRadialGradient(cx,cy,eventR*.8,cx,cy,eventR);
+    h.addColorStop(0,"rgba(0,0,0,0)");
+    h.addColorStop(.7,"rgba(20,20,20,.6)");
+    h.addColorStop(1,"rgba(0,0,0,.95)");
+    ctx.fillStyle=h;
     ctx.beginPath();
-    ctx.arc(cx, cy, horizonR * 1.1, 0, Math.PI * 2);
+    ctx.arc(cx,cy,eventR,0,Math.PI*2);
     ctx.fill();
 
-    ctx.fillStyle = "black";
+    /* anillo de fotones */
+    const g=Math.min(1.2,.6+bhEnergy*.15);
+    const glow=ctx.createRadialGradient(cx,cy,singularityR*.9,cx,cy,singularityR*1.1);
+    glow.addColorStop(0,"black");
+    glow.addColorStop(.5,`rgba(255,160,60,${g})`);
+    glow.addColorStop(1,"transparent");
+    ctx.fillStyle=glow;
     ctx.beginPath();
-    ctx.arc(cx, cy, horizonR, 0, Math.PI * 2);
+    ctx.arc(cx,cy,singularityR*1.1,0,Math.PI*2);
+    ctx.fill();
+
+    /* singularidad */
+    ctx.fillStyle="black";
+    ctx.beginPath();
+    ctx.arc(cx,cy,singularityR,0,Math.PI*2);
     ctx.fill();
 }
 
-/* --- Loop Principal --- */
-let lastTime = 0;
-function animate(time) {
-    const dt = time - lastTime;
-    lastTime = time;
+/* loop */
+let last=0;
+function animate(t){
+    const dt=t-last; last=t;
 
-    bhEnergy -= energyDecay;
-    bhEnergy = Math.max(0, bhEnergy);
+    bhEnergy=Math.max(0,bhEnergy-energyDecay);
 
-    ctx.fillStyle = bhEnergy < 0.2 ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.2)";
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle=bhEnergy<.2?"rgba(0,0,0,.3)":"rgba(0,0,0,.2)";
+    ctx.fillRect(0,0,width,height);
 
     drawStars();
+    jets.forEach(j=>{j.update();j.draw();});
 
-    jets.forEach(j => { j.update(); j.draw(); });
-
-    particles.forEach(p => {
-        p.update();
-        if (Math.sin(p.theta) < 0) p.draw();
-    });
-
+    particles.forEach(p=>{p.update(); if(Math.sin(p.theta)<0) p.draw();});
     drawBlackHole();
+    particles.forEach(p=>{if(Math.sin(p.theta)>=0) p.draw();});
 
-    particles.forEach(p => {
-        if (Math.sin(p.theta) >= 0) p.draw();
-    });
-
-    if (time % 10 < 1) {
-        document.getElementById("fps").innerText = Math.round(1000 / dt);
-    }
-
+    if(t%10<1) fps.textContent=Math.round(1000/dt);
     requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
