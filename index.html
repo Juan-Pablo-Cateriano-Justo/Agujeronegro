@@ -16,14 +16,15 @@
     </style>
 </head>
 <body>
-    <div id="info">
-        <strong>SINGULARIDAD DE KERR</strong><br><br>
-        <span class="label">Estado:</span> <span class="val">Activo</span><br>
-        <span class="label">Radiación:</span> <span class="val">Emisión de Jets X</span><br>
-        <span class="label">Spin (a):</span> <span class="val">0.99</span><br>
-        <span class="label">FPS:</span> <span id="fps" class="val">60</span>
-    </div>
-    <canvas id="canvas"></canvas>
+<div id="info">
+    <strong>SINGULARIDAD DE KERR</strong><br><br>
+    <span class="label">Estado:</span> <span class="val">Activo</span><br>
+    <span class="label">Radiación:</span> <span class="val">Jets Relativistas</span><br>
+    <span class="label">Spin (a):</span> <span class="val">0.99</span><br>
+    <span class="label">FPS:</span> <span id="fps" class="val">60</span>
+</div>
+
+<canvas id="canvas"></canvas>
 
 <script>
 const canvas = document.getElementById("canvas");
@@ -32,6 +33,10 @@ const ctx = canvas.getContext("2d");
 let width, height, cx, cy;
 const G = 1, M = 35, a = 0.99, scale = 7;
 let rs, rPlus, rISCO;
+
+/* --- Energía del Agujero Negro --- */
+let bhEnergy = 0;
+const energyDecay = 0.0004;
 
 function resize() {
     width = canvas.width = window.innerWidth;
@@ -47,8 +52,10 @@ resize();
 
 /* --- Estrellas de Fondo --- */
 const stars = Array.from({ length: 300 }, () => ({
-    x: Math.random() * width, y: Math.random() * height,
-    s: Math.random() * 2, opacity: Math.random()
+    x: Math.random() * width,
+    y: Math.random() * height,
+    s: Math.random() * 2,
+    opacity: Math.random()
 }));
 
 function drawStars() {
@@ -60,37 +67,37 @@ function drawStars() {
     ctx.globalAlpha = 1;
 }
 
-/* --- Jets Relativistas (Radiación X) --- */
+/* --- Jets Relativistas --- */
 class Jet {
     constructor(dir) {
-        this.dir = dir; // 1 arriba, -1 abajo
+        this.dir = dir;
         this.reset();
     }
     reset() {
         this.x = (Math.random() - 0.5) * 15;
-        this.y = 0;
-        this.z = Math.random() * 20; 
+        this.z = Math.random() * 20;
         this.speed = 4 + Math.random() * 6;
         this.life = 1;
-        this.maxLife = 0.4 + Math.random() * 0.6;
     }
     update() {
-        this.z += this.speed;
+        this.z += this.speed * (1 + bhEnergy * 0.05);
         this.life -= 0.015;
         if (this.life <= 0) this.reset();
     }
     draw() {
         const perspective = 400 / (400 + this.z);
         const sx = cx + this.x * perspective;
-        const sy = cy - (this.z * this.dir * scale * 0.8);
-        
-        const alpha = this.life * 0.4;
-        ctx.fillStyle = `rgba(180, 220, 255, ${alpha})`;
+        const sy = cy - this.z * this.dir * scale * 0.8;
+
+        const alpha = this.life * (0.3 + bhEnergy * 0.1);
+        ctx.fillStyle = `rgba(180,220,255,${alpha})`;
         ctx.shadowBlur = 15 * alpha;
         ctx.shadowColor = "#00a2ff";
+
         ctx.beginPath();
         ctx.arc(sx, sy, 3 * perspective, 0, Math.PI * 2);
         ctx.fill();
+
         ctx.shadowBlur = 0;
     }
 }
@@ -106,25 +113,28 @@ class Particle {
         this.size = 1 + Math.random() * 2;
     }
     update() {
-        this.theta += this.speed;
-        this.r -= 0.005; 
-        if (this.r < rPlus * 0.9) this.reset();
+        this.theta += this.speed * (1 + bhEnergy * 0.08);
+        this.r -= 0.005;
+
+        if (this.r < rPlus * 0.9) {
+            bhEnergy += 0.02; // el agujero se alimenta
+            this.reset();
+        }
     }
     draw() {
         const sinT = Math.sin(this.theta);
         const cosT = Math.cos(this.theta);
-        
-        // Lente gravitacional simple (deformación vertical)
+
         const lens = (rISCO * 10) / (this.r * 1.2);
         const x = cx + cosT * this.r * scale;
-        const y = cy + sinT * 0.25 * this.r * scale - (lens * scale * (sinT > 0 ? 1 : -0.5));
+        const y = cy + sinT * 0.25 * this.r * scale - lens * scale * (sinT > 0 ? 1 : -0.5);
 
-        const doppler = 1 - sinT * 0.4; // Brillo por efecto Doppler
-        const distColor = Math.min(1, rISCO / this.r);
-        
+        const doppler = 1 - sinT * 0.4;
+        const dist = Math.min(1, rISCO / this.r);
+
         const r = 255 * doppler;
-        const g = (140 + 115 * distColor) * doppler;
-        const b = (50 + 50 * distColor) * doppler;
+        const g = (140 + 115 * dist) * doppler;
+        const b = (50 + 50 * dist) * doppler;
 
         ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
         ctx.beginPath();
@@ -134,21 +144,21 @@ class Particle {
 }
 const particles = Array.from({ length: 2500 }, () => new Particle());
 
-/* --- El Cuerpo del Agujero Negro --- */
+/* --- Agujero Negro --- */
 function drawBlackHole() {
     const horizonR = rPlus * scale;
 
-    // Anillo de Fotones (Singularidad visual)
+    const glowPower = Math.min(1.2, 0.6 + bhEnergy * 0.15);
     const glow = ctx.createRadialGradient(cx, cy, horizonR * 0.9, cx, cy, horizonR * 1.1);
     glow.addColorStop(0, "black");
-    glow.addColorStop(0.5, "rgba(255, 150, 50, 0.8)");
+    glow.addColorStop(0.5, `rgba(255,160,60,${glowPower})`);
     glow.addColorStop(1, "transparent");
+
     ctx.fillStyle = glow;
     ctx.beginPath();
     ctx.arc(cx, cy, horizonR * 1.1, 0, Math.PI * 2);
     ctx.fill();
 
-    // Horizonte de sucesos (Esfera negra)
     ctx.fillStyle = "black";
     ctx.beginPath();
     ctx.arc(cx, cy, horizonR, 0, Math.PI * 2);
@@ -161,32 +171,33 @@ function animate(time) {
     const dt = time - lastTime;
     lastTime = time;
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.2)"; // Trail effect
+    bhEnergy -= energyDecay;
+    bhEnergy = Math.max(0, bhEnergy);
+
+    ctx.fillStyle = bhEnergy < 0.2 ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.2)";
     ctx.fillRect(0, 0, width, height);
 
     drawStars();
 
-    // 1. Jets de Radiación (detrás y delante)
     jets.forEach(j => { j.update(); j.draw(); });
 
-    // 2. Partículas del fondo (detrás del agujero)
     particles.forEach(p => {
         p.update();
         if (Math.sin(p.theta) < 0) p.draw();
     });
 
-    // 3. Agujero Negro Central
     drawBlackHole();
 
-    // 4. Partículas del frente
     particles.forEach(p => {
         if (Math.sin(p.theta) >= 0) p.draw();
     });
 
-    if (time % 10 < 1) document.getElementById("fps").innerText = Math.round(1000/dt);
+    if (time % 10 < 1) {
+        document.getElementById("fps").innerText = Math.round(1000 / dt);
+    }
+
     requestAnimationFrame(animate);
 }
-
 requestAnimationFrame(animate);
 </script>
 </body>
