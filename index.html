@@ -2,464 +2,190 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Agujero Negro Kerr - Gargantúa Pro v2</title>
+    <title>Simulador de Agujero Negro Kerr - Gargantúa Pro</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            overflow: hidden; 
-            background: #000; 
-            font-family: 'Courier New', monospace;
-            user-select: none;
-        }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         canvas { display: block; }
-        
         #info {
-            position: absolute; top: 20px; left: 20px;
-            color: #0ff; font-size: 12px;
-            background: rgba(0, 10, 20, 0.85);
-            padding: 15px 20px; 
-            border: 1px solid #0ff;
-            border-radius: 8px;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
-            pointer-events: none;
-            min-width: 250px;
+            position: absolute; top: 20px; left: 20px; color: #fff; font-size: 13px;
+            background: rgba(0, 0, 0, 0.7); padding: 15px; border-left: 4px solid #00d4ff;
+            pointer-events: none; border-radius: 0 8px 8px 0;
         }
-        
-        .val { color: #0ff; font-weight: bold; margin-left: 8px; }
-        .label { color: #888; font-size: 10px; letter-spacing: 1px; }
-        .warning { color: #ff6b00; }
-        
-        #controls {
-            position: absolute; bottom: 30px; left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 10, 20, 0.9);
-            padding: 20px 30px;
-            border: 1px solid #0ff;
-            border-radius: 12px;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
-            display: flex;
-            gap: 25px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            min-width: 150px;
-        }
-        
-        .control-group label {
-            color: #0ff;
-            font-size: 11px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-        
-        input[type="range"] {
-            width: 100%;
-            height: 4px;
-            background: rgba(0, 255, 255, 0.2);
-            outline: none;
-            border-radius: 2px;
-        }
-        
-        input[type="range"]::-webkit-slider-thumb {
-            appearance: none;
-            width: 14px;
-            height: 14px;
-            background: #0ff;
-            border-radius: 50%;
-            cursor: pointer;
-            box-shadow: 0 0 10px #0ff;
-        }
-        
-        input[type="range"]::-moz-range-thumb {
-            width: 14px;
-            height: 14px;
-            background: #0ff;
-            border-radius: 50%;
-            cursor: pointer;
-            box-shadow: 0 0 10px #0ff;
-        }
-        
-        button {
-            background: rgba(0, 255, 255, 0.1);
-            border: 1px solid #0ff;
-            color: #0ff;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            letter-spacing: 1px;
-            transition: all 0.3s;
-        }
-        
-        button:hover {
-            background: rgba(0, 255, 255, 0.3);
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
-        }
-        
-        #instructions {
-            position: absolute; top: 20px; right: 20px;
-            color: #888;
-            font-size: 11px;
-            background: rgba(0, 10, 20, 0.85);
-            padding: 15px;
-            border: 1px solid #444;
-            border-radius: 8px;
-            max-width: 200px;
-        }
+        .val { color: #00d4ff; font-weight: bold; }
+        .label { color: #aaa; text-transform: uppercase; font-size: 10px; }
     </style>
 </head>
 <body>
     <div id="info">
-        <div style="font-size: 14px; margin-bottom: 10px; color: #fff;">⚫ SINGULARIDAD DE KERR</div>
-        <div><span class="label">ESTADO:</span><span class="val">ACTIVO</span></div>
-        <div><span class="label">RADIACIÓN:</span><span class="val">JETS RELATIVISTAS</span></div>
-        <div><span class="label">SPIN (a/M):</span><span class="val" id="spinVal">0.99</span></div>
-        <div><span class="label">MASA (M☉):</span><span class="val" id="massVal">35</span></div>
-        <div><span class="label">R+ (km):</span><span class="val" id="rplusVal">103.2</span></div>
-        <div><span class="label">PARTÍCULAS:</span><span class="val" id="partCount">3000</span></div>
-        <div><span class="label">FPS:</span><span class="val" id="fps">60</span></div>
-        <div style="margin-top: 10px;"><span class="label warning">⚠ ERGOSFERA</span><span class="val warning">ACTIVA</span></div>
+        <strong>SINGULARIDAD DE KERR</strong><br><br>
+        <span class="label">Estado:</span> <span class="val">Activo</span><br>
+        <span class="label">Radiación:</span> <span class="val">Emisión de Jets X</span><br>
+        <span class="label">Spin (a):</span> <span class="val">0.99</span><br>
+        <span class="label">FPS:</span> <span id="fps" class="val">60</span>
     </div>
-    
-    <div id="instructions">
-        <strong style="color: #0ff;">CONTROLES:</strong><br>
-        • Scroll: Zoom<br>
-        • Click+Arrastrar: Rotar<br>
-        • Espacio: Pausa<br>
-    </div>
-    
     <canvas id="canvas"></canvas>
-    
-    <div id="controls">
-        <div class="control-group">
-            <label>Spin (a/M): <span id="spinDisplay">0.99</span></label>
-            <input type="range" id="spinSlider" min="0" max="99" value="99" step="1">
-        </div>
-        <div class="control-group">
-            <label>Masa (M☉): <span id="massDisplay">35</span></label>
-            <input type="range" id="massSlider" min="10" max="100" value="35" step="5">
-        </div>
-        <div class="control-group">
-            <label>Partículas: <span id="particleDisplay">3000</span></label>
-            <input type="range" id="particleSlider" min="500" max="5000" value="3000" step="500">
-        </div>
-        <button id="resetBtn">RESETEAR</button>
-        <button id="pauseBtn">PAUSAR</button>
-    </div>
 
 <script>
 const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d", { alpha: false });
+const ctx = canvas.getContext("2d");
 
-// Estado global
 let width, height, cx, cy;
-const G = 1;
-let M = 35;
-let a = 0.99;
-let scale = 7;
-let zoom = 1;
-let paused = false;
-
-// Física del agujero negro
-let rs, rPlus, rMinus, rErgosphere, rPhotonSphere, rISCO;
-
-function updatePhysics() {
-    rs = 2 * G * M;
-    const delta = 1 - a * a;
-    rPlus = G * M * (1 + Math.sqrt(delta));
-    rMinus = G * M * (1 - Math.sqrt(delta));
-    rErgosphere = 2 * G * M;
-    rPhotonSphere = rs * 1.5;
-    rISCO = rs * (3 + Math.sqrt(9 - 8 * a * a)) / 2;
-    
-    document.getElementById("rplusVal").textContent = (rPlus * 2.95).toFixed(1);
-}
+const G = 1, M = 35, a = 0.99, scale = 7;
+let rs, rPlus, rISCO;
 
 function resize() {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
     cx = width / 2;
     cy = height / 2;
-    updatePhysics();
+    rs = 2 * G * M;
+    rPlus = G * M * (1 + Math.sqrt(1 - a * a));
+    rISCO = rs * 2.5;
 }
 window.addEventListener("resize", resize);
 resize();
 
-/* --- ESTRELLAS DE FONDO --- */
-const stars = Array.from({ length: 400 }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
-    s: Math.random() * 1.5 + 0.5,
-    opacity: Math.random() * 0.7 + 0.3,
-    twinkle: Math.random() * Math.PI * 2
+/* --- Estrellas de Fondo --- */
+const stars = Array.from({ length: 300 }, () => ({
+    x: Math.random() * width, y: Math.random() * height,
+    s: Math.random() * 2, opacity: Math.random()
 }));
 
-function drawStars(time) {
+function drawStars() {
+    ctx.fillStyle = "white";
     stars.forEach(s => {
-        const twinkle = Math.sin(s.twinkle + time * 0.001) * 0.3 + 0.7;
-        ctx.globalAlpha = s.opacity * twinkle;
-        ctx.fillStyle = "#ffffff";
+        ctx.globalAlpha = s.opacity;
         ctx.fillRect(s.x, s.y, s.s, s.s);
     });
     ctx.globalAlpha = 1;
 }
 
-/* --- JETS RELATIVISTAS --- */
+/* --- Jets Relativistas (Radiación X) --- */
 class Jet {
     constructor(dir) {
-        this.dir = dir;
+        this.dir = dir; // 1 arriba, -1 abajo
         this.reset();
     }
     reset() {
-        this.x = (Math.random() - 0.5) * 12;
+        this.x = (Math.random() - 0.5) * 15;
         this.y = 0;
-        this.z = Math.random() * 30;
-        this.speed = 5 + Math.random() * 8;
+        this.z = Math.random() * 20; 
+        this.speed = 4 + Math.random() * 6;
         this.life = 1;
-        this.thickness = Math.random() * 2 + 1;
+        this.maxLife = 0.4 + Math.random() * 0.6;
     }
     update() {
         this.z += this.speed;
-        this.life -= 0.012;
+        this.life -= 0.015;
         if (this.life <= 0) this.reset();
     }
     draw() {
-        const perspective = 500 / (500 + this.z);
-        const sx = cx + this.x * perspective * zoom;
-        const sy = cy - (this.z * this.dir * scale * 0.9 * zoom);
+        const perspective = 400 / (400 + this.z);
+        const sx = cx + this.x * perspective;
+        const sy = cy - (this.z * this.dir * scale * 0.8);
         
-        const alpha = this.life * 0.5;
-        const size = this.thickness * perspective * zoom;
-        
-        // Glow effect
-        const gradient = ctx.createRadialGradient(sx, sy, 0, sx, sy, size * 4);
-        gradient.addColorStop(0, rgba(100, 180, 255, ${alpha}));
-        gradient.addColorStop(0.5, rgba(0, 120, 255, ${alpha * 0.3}));
-        gradient.addColorStop(1, "transparent");
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(sx - size * 4, sy - size * 4, size * 8, size * 8);
+        const alpha = this.life * 0.4;
+        ctx.fillStyle = rgba(180, 220, 255, ${alpha});
+        ctx.shadowBlur = 15 * alpha;
+        ctx.shadowColor = "#00a2ff";
+        ctx.beginPath();
+        ctx.arc(sx, sy, 3 * perspective, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
     }
 }
-const jets = Array.from({ length: 100 }, (_, i) => new Jet(i % 2 === 0 ? 1 : -1));
+const jets = Array.from({ length: 80 }, (_, i) => new Jet(i % 2 === 0 ? 1 : -1));
 
-/* --- DISCO DE ACRECIÓN --- */
+/* --- Disco de Acreción --- */
 class Particle {
     constructor() { this.reset(); }
     reset() {
-        this.r = rISCO * 0.9 + Math.random() * rISCO * 4;
+        this.r = rISCO * 0.8 + Math.random() * rISCO * 5;
         this.theta = Math.random() * Math.PI * 2;
-        const orbitalVel = Math.sqrt(G * M / this.r);
-        this.speed = orbitalVel * 0.02 * (1 + a * 0.3);
-        this.size = Math.random() * 2 + 0.5;
-        this.z = (Math.random() - 0.5) * rISCO * 0.15; // Altura del disco
+        this.speed = (0.015 + Math.random() * 0.02) * Math.pow(rISCO / this.r, 1.5);
+        this.size = 1 + Math.random() * 2;
     }
     update() {
         this.theta += this.speed;
-        
-        // Acreción gradual
-        const infall = 0.01 * Math.pow(rISCO / this.r, 2);
-        this.r -= infall;
-        
-        // Espiral hacia el centro
-        if (this.r < rPlus * 1.2) this.reset();
+        this.r -= 0.005; 
+        if (this.r < rPlus * 0.9) this.reset();
     }
     draw() {
         const sinT = Math.sin(this.theta);
         const cosT = Math.cos(this.theta);
         
-        // Lente gravitacional mejorada
-        const lensing = rPhotonSphere / Math.max(this.r, rPhotonSphere);
-        const verticalCompression = 0.2 + lensing * 0.3;
+        // Lente gravitacional simple (deformación vertical)
+        const lens = (rISCO * 10) / (this.r * 1.2);
+        const x = cx + cosT * this.r * scale;
+        const y = cy + sinT * 0.25 * this.r * scale - (lens * scale * (sinT > 0 ? 1 : -0.5));
+
+        const doppler = 1 - sinT * 0.4; // Brillo por efecto Doppler
+        const distColor = Math.min(1, rISCO / this.r);
         
-        const x = cx + cosT * this.r * scale * zoom;
-        const y = cy + sinT * verticalCompression * this.r * scale * zoom - (lensing * scale * zoom * 3 * (sinT > 0 ? 1 : -0.3));
-        
-        // Doppler beaming (más brillante al acercarse)
-        const doppler = 1 + sinT * 0.5;
-        
-        // Temperatura del disco (más caliente cerca del centro)
-        const temp = Math.min(1, (rISCO * 2) / this.r);
-        
-        const r = 255 * doppler * temp;
-        const g = (120 + 100 * temp) * doppler;
-        const b = (30 + 40 * (1 - temp)) * doppler;
-        
-        const alpha = Math.min(1, doppler * (1 - this.z * this.z / (rISCO * rISCO)));
-        
-        ctx.globalAlpha = alpha;
+        const r = 255 * doppler;
+        const g = (140 + 115 * distColor) * doppler;
+        const b = (50 + 50 * distColor) * doppler;
+
         ctx.fillStyle = rgb(${r|0},${g|0},${b|0});
-        
-        // Glow para partículas calientes
-        if (temp > 0.7) {
-            ctx.shadowBlur = 5 * temp * zoom;
-            ctx.shadowColor = rgb(${r|0},${g|0},${b|0});
-        }
-        
         ctx.beginPath();
-        ctx.arc(x, y, this.size * zoom, 0, Math.PI * 2);
+        ctx.arc(x, y, this.size, 0, Math.PI * 2);
         ctx.fill();
-        
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = 1;
     }
 }
-let particles = Array.from({ length: 3000 }, () => new Particle());
+const particles = Array.from({ length: 2500 }, () => new Particle());
 
-/* --- AGUJERO NEGRO Y SOMBRA --- */
+/* --- El Cuerpo del Agujero Negro --- */
 function drawBlackHole() {
-    const horizonR = rPlus * scale * zoom;
-    const photonR = rPhotonSphere * scale * zoom;
-    
-    // Sombra del agujero negro (photon sphere)
-    const shadowGrad = ctx.createRadialGradient(cx, cy, horizonR, cx, cy, photonR);
-    shadowGrad.addColorStop(0, "rgba(0, 0, 0, 1)");
-    shadowGrad.addColorStop(0.7, "rgba(20, 10, 0, 0.8)");
-    shadowGrad.addColorStop(1, "transparent");
-    
-    ctx.fillStyle = shadowGrad;
+    const horizonR = rPlus * scale;
+
+    // Anillo de Fotones (Singularidad visual)
+    const glow = ctx.createRadialGradient(cx, cy, horizonR * 0.9, cx, cy, horizonR * 1.1);
+    glow.addColorStop(0, "black");
+    glow.addColorStop(0.5, "rgba(255, 150, 50, 0.8)");
+    glow.addColorStop(1, "transparent");
+    ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(cx, cy, photonR, 0, Math.PI * 2);
+    ctx.arc(cx, cy, horizonR * 1.1, 0, Math.PI * 2);
     ctx.fill();
-    
-    // Anillo de fotones
-    ctx.strokeStyle = "rgba(255, 200, 100, 0.3)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, photonR, 0, Math.PI * 2);
-    ctx.stroke();
-    
-    // Horizonte de eventos
-    const horizonGlow = ctx.createRadialGradient(cx, cy, horizonR * 0.95, cx, cy, horizonR * 1.05);
-    horizonGlow.addColorStop(0, "black");
-    horizonGlow.addColorStop(0.5, "rgba(255, 100, 0, 0.6)");
-    horizonGlow.addColorStop(1, "transparent");
-    
-    ctx.fillStyle = horizonGlow;
-    ctx.beginPath();
-    ctx.arc(cx, cy, horizonR * 1.05, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Centro negro absoluto
+
+    // Horizonte de sucesos (Esfera negra)
     ctx.fillStyle = "black";
     ctx.beginPath();
     ctx.arc(cx, cy, horizonR, 0, Math.PI * 2);
     ctx.fill();
 }
 
-/* --- LOOP PRINCIPAL --- */
+/* --- Loop Principal --- */
 let lastTime = 0;
-let frameCount = 0;
-let lastFpsUpdate = 0;
-
 function animate(time) {
-    if (paused) {
-        requestAnimationFrame(animate);
-        return;
-    }
-    
     const dt = time - lastTime;
     lastTime = time;
-    
-    // Motion blur effect
-    ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.2)"; // Trail effect
     ctx.fillRect(0, 0, width, height);
-    
-    drawStars(time);
-    
-    // Jets (parte trasera)
-    jets.forEach(j => {
-        if (j.dir === -1) {
-            j.update();
-            j.draw();
-        }
-    });
-    
-    // Partículas traseras
+
+    drawStars();
+
+    // 1. Jets de Radiación (detrás y delante)
+    jets.forEach(j => { j.update(); j.draw(); });
+
+    // 2. Partículas del fondo (detrás del agujero)
     particles.forEach(p => {
-        if (Math.sin(p.theta) < -0.1 || p.z < 0) {
-            p.update();
-            p.draw();
-        }
+        p.update();
+        if (Math.sin(p.theta) < 0) p.draw();
     });
-    
-    // Agujero negro
+
+    // 3. Agujero Negro Central
     drawBlackHole();
-    
-    // Partículas frontales
+
+    // 4. Partículas del frente
     particles.forEach(p => {
-        if (Math.sin(p.theta) >= -0.1 && p.z >= 0) p.draw();
+        if (Math.sin(p.theta) >= 0) p.draw();
     });
-    
-    // Jets (parte frontal)
-    jets.forEach(j => {
-        if (j.dir === 1) j.draw();
-    });
-    
-    // FPS Counter
-    frameCount++;
-    if (time - lastFpsUpdate > 1000) {
-        document.getElementById("fps").textContent = frameCount;
-        frameCount = 0;
-        lastFpsUpdate = time;
-    }
-    
+
+    if (time % 10 < 1) document.getElementById("fps").innerText = Math.round(1000/dt);
     requestAnimationFrame(animate);
 }
-
-/* --- CONTROLES --- */
-document.getElementById("spinSlider").addEventListener("input", e => {
-    a = e.target.value / 100;
-    document.getElementById("spinDisplay").textContent = a.toFixed(2);
-    document.getElementById("spinVal").textContent = a.toFixed(2);
-    updatePhysics();
-});
-
-document.getElementById("massSlider").addEventListener("input", e => {
-    M = parseInt(e.target.value);
-    document.getElementById("massDisplay").textContent = M;
-    document.getElementById("massVal").textContent = M;
-    updatePhysics();
-});
-
-document.getElementById("particleSlider").addEventListener("input", e => {
-    const count = parseInt(e.target.value);
-    document.getElementById("particleDisplay").textContent = count;
-    document.getElementById("partCount").textContent = count;
-    particles = Array.from({ length: count }, () => new Particle());
-});
-
-document.getElementById("resetBtn").addEventListener("click", () => {
-    particles.forEach(p => p.reset());
-    jets.forEach(j => j.reset());
-});
-
-document.getElementById("pauseBtn").addEventListener("click", () => {
-    paused = !paused;
-    document.getElementById("pauseBtn").textContent = paused ? "REANUDAR" : "PAUSAR";
-});
-
-// Zoom con scroll
-canvas.addEventListener("wheel", e => {
-    e.preventDefault();
-    zoom *= e.deltaY < 0 ? 1.1 : 0.9;
-    zoom = Math.max(0.3, Math.min(3, zoom));
-});
-
-// Pausa con espacio
-window.addEventListener("keydown", e => {
-    if (e.code === "Space") {
-        e.preventDefault();
-        document.getElementById("pauseBtn").click();
-    }
-});
 
 requestAnimationFrame(animate);
 </script>
