@@ -158,14 +158,62 @@
             animation: pulse 1s infinite;
         }
         
+        #factBox {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 50, 100, 0.9);
+            color: #fff;
+            padding: 15px 25px;
+            border: 2px solid #0ff;
+            border-radius: 10px;
+            font-size: 13px;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+        
+        #factBox.show {
+            opacity: 1;
+        }
+        
         @keyframes pulse {
             0%, 100% { transform: translate(-50%, -50%) scale(1); }
             50% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+        
+        @keyframes shockwave {
+            0% { 
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 1;
+            }
+            100% { 
+                transform: translate(-50%, -50%) scale(4);
+                opacity: 0;
+            }
+        }
+        
+        .shockwave {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 200px;
+            height: 200px;
+            border: 3px solid #ff6600;
+            border-radius: 50%;
+            animation: shockwave 2s ease-out;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
     <div id="collapseWarning">⚠️ COLAPSO GRAVITACIONAL ⚠️</div>
+    
+    <div id="factBox">💡 Las estrellas de neutrones giran hasta 700 veces por segundo</div>
     
     <div id="info">
         <div style="font-size: 14px; margin-bottom: 10px; color: #fff;">
@@ -188,7 +236,9 @@
         • Scroll: Zoom<br>
         • Click+Arrastrar: Rotar<br>
         • Espacio: Pausa<br>
-        • <strong style="color: #ff6600;">E: COLAPSAR ⚠️</strong><br><br>
+        • <strong style="color: #ff6600;">E: COLAPSAR ⚠️</strong><br>
+        • G: Ondas gravitacionales<br>
+        • L: Lente gravitacional<br><br>
         <span style="color: #ff6600; font-size: 9px;">Presiona E para iniciar el colapso gravitacional</span>
     </div>
     
@@ -198,6 +248,8 @@
         <button id="collapseBtn" class="collapse-btn">INICIAR COLAPSO (E)</button>
         <button id="resetBtn">RESETEAR</button>
         <button id="pauseBtn">PAUSAR</button>
+        <button id="gwBtn">ONDAS G (G)</button>
+        <button id="lensBtn">LENTE G (L)</button>
     </div>
 
 <script>
@@ -209,17 +261,23 @@ let width, height, cx, cy;
 let zoom = 1;
 let paused = false;
 
+// Nuevas características
+let showGravitationalWaves = false;
+let showGravitationalLensing = true;
+let gravitationalWaves = [];
+let ejectaParticles = [];
+
 // Estado de la simulación
 let isNeutronStar = true;
 let isCollapsing = false;
 let collapseProgress = 0;
-const COLLAPSE_DURATION = 5000; // 5 segundos de colapso
+const COLLAPSE_DURATION = 5000;
 let collapseStartTime = 0;
 
 // Parámetros de estrella de neutrones
 let neutronStar = {
     mass: 1.8,
-    radius: 60, // Radio visual
+    radius: 60,
     rotationSpeed: 30,
     rotation: 0,
     magneticField: true,
@@ -250,8 +308,34 @@ function resize() {
     cy = height / 2;
     updateBlackHolePhysics();
 }
+
 window.addEventListener("resize", resize);
 resize();
+
+/* --- HECHOS CIENTÍFICOS --- */
+const facts = [
+    "💡 Una cucharada de estrella de neutrones pesa mil millones de toneladas",
+    "💡 Los agujeros negros pueden girar al 99% de la velocidad de la luz",
+    "💡 El tiempo se detiene en el horizonte de eventos",
+    "💡 Las estrellas de neutrones tienen campos magnéticos billones de veces más fuertes que la Tierra",
+    "💡 Un agujero negro estelar se forma cuando una estrella >25 M☉ colapsa",
+    "💡 Los púlsares son los relojes más precisos del universo",
+    "💡 La ergosfera permite extraer energía de un agujero negro rotante",
+    "💡 Durante el colapso se liberan neutrinos en cantidades masivas"
+];
+
+let currentFactIndex = 0;
+let factTimer = 0;
+
+function showFact(index) {
+    const factBox = document.getElementById("factBox");
+    factBox.textContent = facts[index];
+    factBox.classList.add("show");
+    
+    setTimeout(() => {
+        factBox.classList.remove("show");
+    }, 4000);
+}
 
 /* --- ESTRELLAS DE FONDO --- */
 const stars = Array.from({ length: 400 }, () => ({
@@ -259,38 +343,136 @@ const stars = Array.from({ length: 400 }, () => ({
     y: Math.random() * height,
     s: Math.random() * 1.5 + 0.5,
     opacity: Math.random() * 0.7 + 0.3,
-    twinkle: Math.random() * Math.PI * 2
+    twinkle: Math.random() * Math.PI * 2,
+    originalX: 0,
+    originalY: 0
 }));
+
+stars.forEach(s => {
+    s.originalX = s.x;
+    s.originalY = s.y;
+});
 
 function drawStars(time) {
     stars.forEach(s => {
+        let finalX = s.x;
+        let finalY = s.y;
+        
+        // Lente gravitacional
+        if (showGravitationalLensing && !isNeutronStar) {
+            const dx = s.x - cx;
+            const dy = s.y - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const influence = rPhotonSphere * scale * zoom * 3;
+            
+            if (dist < influence && dist > 10) {
+                const lensingFactor = (influence / dist) * 0.3;
+                const angle = Math.atan2(dy, dx);
+                finalX = cx + Math.cos(angle) * (dist + lensingFactor * 50);
+                finalY = cy + Math.sin(angle) * (dist + lensingFactor * 50);
+            }
+        }
+        
         const twinkle = Math.sin(s.twinkle + time * 0.001) * 0.3 + 0.7;
         ctx.globalAlpha = s.opacity * twinkle;
         ctx.fillStyle = "#ffffff";
-        ctx.fillRect(s.x, s.y, s.s, s.s);
+        ctx.fillRect(finalX, finalY, s.s, s.s);
     });
     ctx.globalAlpha = 1;
+}
+
+/* --- ONDAS GRAVITACIONALES --- */
+class GravitationalWave {
+    constructor(time) {
+        this.birthTime = time;
+        this.maxRadius = Math.max(width, height);
+    }
+    
+    draw(currentTime) {
+        const age = currentTime - this.birthTime;
+        const radius = age * 0.3;
+        
+        if (radius > this.maxRadius) return false;
+        
+        const alpha = Math.max(0, 1 - radius / this.maxRadius);
+        
+        ctx.strokeStyle = `rgba(100, 200, 255, ${alpha * 0.3})`;
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 10]);
+        
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * zoom, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.setLineDash([]);
+        
+        return true;
+    }
+}
+
+/* --- PARTÍCULAS EYECTADAS --- */
+class EjectaParticle {
+    constructor() {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 4;
+        
+        this.x = cx;
+        this.y = cy;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.size = Math.random() * 3 + 1;
+        this.life = 1;
+        this.color = Math.random() > 0.5 ? 
+            [255, 150, 50] : [255, 200, 100];
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= 0.01;
+        this.vy += 0.05; // Gravedad
+    }
+    
+    draw() {
+        if (this.life <= 0) return false;
+        
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = `rgb(${this.color[0]}, ${this.color[1]}, ${this.color[2]})`;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = `rgb(${this.color[0]}, ${this.color[1]}, ${this.color[2]})`;
+        
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * zoom, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        
+        return true;
+    }
 }
 
 /* --- ESTRELLA DE NEUTRONES --- */
 class NeutronStarParticle {
     constructor() { this.reset(); }
+    
     reset() {
         this.angle = Math.random() * Math.PI * 2;
         this.r = neutronStar.radius * (0.7 + Math.random() * 0.3);
         this.orbitSpeed = (Math.random() - 0.5) * 0.02;
         this.size = Math.random() * 2 + 1;
-        this.color = Math.random() > 0.5 ? 0 : 1; // 0=azul, 1=blanco
+        this.color = Math.random() > 0.5 ? 0 : 1;
     }
+    
     update() {
         this.angle += this.orbitSpeed;
         
         if (isCollapsing) {
-            // Durante el colapso, las partículas caen hacia el centro
             this.r -= (this.r / neutronStar.radius) * 2 * collapseProgress;
-            this.orbitSpeed *= 1.05; // Acelera la rotación
+            this.orbitSpeed *= 1.05;
         }
     }
+    
     draw() {
         const x = cx + Math.cos(this.angle) * this.r * zoom;
         const y = cy + Math.sin(this.angle) * this.r * zoom;
@@ -320,7 +502,7 @@ function drawNeutronStar(time) {
     
     const visualRadius = neutronStar.radius * zoom * (1 - collapseProgress * 0.8);
     
-    // Núcleo de la estrella
+    // Núcleo
     const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, visualRadius);
     coreGrad.addColorStop(0, `rgba(255, 255, 255, ${0.9 - collapseProgress * 0.5})`);
     coreGrad.addColorStop(0.3, `rgba(200, 220, 255, ${0.7 - collapseProgress * 0.4})`);
@@ -332,7 +514,7 @@ function drawNeutronStar(time) {
     ctx.arc(cx, cy, visualRadius, 0, Math.PI * 2);
     ctx.fill();
     
-    // Campo magnético (líneas polares)
+    // Campo magnético
     if (neutronStar.magneticField && !isCollapsing) {
         ctx.strokeStyle = `rgba(100, 255, 200, 0.3)`;
         ctx.lineWidth = 2;
@@ -369,19 +551,20 @@ function drawNeutronStar(time) {
         ctx.restore();
     }
     
-    // Actualizar y dibujar partículas
+    // Partículas
     neutronParticles.forEach(p => {
         p.update();
         p.draw();
     });
 }
 
-/* --- JETS RELATIVISTAS (AGUJERO NEGRO) --- */
+/* --- JETS RELATIVISTAS --- */
 class Jet {
     constructor(dir) {
         this.dir = dir;
         this.reset();
     }
+    
     reset() {
         this.x = (Math.random() - 0.5) * 12;
         this.y = 0;
@@ -390,11 +573,13 @@ class Jet {
         this.life = 1;
         this.thickness = Math.random() * 2 + 1;
     }
+    
     update() {
         this.z += this.speed;
         this.life -= 0.012;
         if (this.life <= 0) this.reset();
     }
+    
     draw() {
         const perspective = 500 / (500 + this.z);
         const sx = cx + this.x * perspective * zoom;
@@ -412,11 +597,13 @@ class Jet {
         ctx.fillRect(sx - size * 4, sy - size * 4, size * 8, size * 8);
     }
 }
+
 let jets = Array.from({ length: 100 }, (_, i) => new Jet(i % 2 === 0 ? 1 : -1));
 
-/* --- DISCO DE ACRECIÓN (AGUJERO NEGRO) --- */
+/* --- DISCO DE ACRECIÓN --- */
 class AccretionParticle {
     constructor() { this.reset(); }
+    
     reset() {
         this.r = rISCO * 0.9 + Math.random() * rISCO * 4;
         this.theta = Math.random() * Math.PI * 2;
@@ -425,12 +612,14 @@ class AccretionParticle {
         this.size = Math.random() * 2 + 0.5;
         this.z = (Math.random() - 0.5) * rISCO * 0.15;
     }
+    
     update() {
         this.theta += this.speed;
         const infall = 0.01 * Math.pow(rISCO / this.r, 2);
         this.r -= infall;
         if (this.r < rPlus * 1.2) this.reset();
     }
+    
     draw() {
         const sinT = Math.sin(this.theta);
         const cosT = Math.cos(this.theta);
@@ -439,7 +628,8 @@ class AccretionParticle {
         const verticalCompression = 0.2 + lensing * 0.3;
         
         const x = cx + cosT * this.r * scale * zoom;
-        const y = cy + sinT * verticalCompression * this.r * scale * zoom - (lensing * scale * zoom * 3 * (sinT > 0 ? 1 : -0.3));
+        const y = cy + sinT * verticalCompression * this.r * scale * zoom - 
+                  (lensing * scale * zoom * 3 * (sinT > 0 ? 1 : -0.3));
         
         const doppler = 1 + sinT * 0.5;
         const temp = Math.min(1, (rISCO * 2) / this.r);
@@ -448,7 +638,8 @@ class AccretionParticle {
         const g = (120 + 100 * temp) * doppler;
         const b = (30 + 40 * (1 - temp)) * doppler;
         
-        const alpha = Math.min(1, doppler * (1 - this.z * this.z / (rISCO * rISCO))) * (1 - collapseProgress + 1);
+        const alpha = Math.min(1, doppler * (1 - this.z * this.z / (rISCO * rISCO))) * 
+                      (1 - collapseProgress + 1);
         
         ctx.globalAlpha = alpha;
         ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
@@ -466,6 +657,7 @@ class AccretionParticle {
         ctx.globalAlpha = 1;
     }
 }
+
 let accretionParticles = [];
 
 /* --- AGUJERO NEGRO --- */
@@ -475,7 +667,7 @@ function drawBlackHole() {
     
     const opacity = 1 - collapseProgress + 1;
     
-    // Sombra del agujero negro
+    // Sombra
     const shadowGrad = ctx.createRadialGradient(cx, cy, horizonR, cx, cy, photonR);
     shadowGrad.addColorStop(0, `rgba(0, 0, 0, ${opacity})`);
     shadowGrad.addColorStop(0.7, `rgba(20, 10, 0, ${0.8 * opacity})`);
@@ -504,14 +696,14 @@ function drawBlackHole() {
     ctx.arc(cx, cy, horizonR * 1.05, 0, Math.PI * 2);
     ctx.fill();
     
-    // Centro negro absoluto
+    // Centro
     ctx.fillStyle = "black";
     ctx.beginPath();
     ctx.arc(cx, cy, horizonR, 0, Math.PI * 2);
     ctx.fill();
 }
 
-/* --- ANIMACIÓN DE COLAPSO --- */
+/* --- COLAPSO --- */
 function startCollapse() {
     if (isCollapsing || !isNeutronStar) return;
     
@@ -522,13 +714,31 @@ function startCollapse() {
     document.getElementById("info").classList.add("collapsing");
     document.getElementById("collapseBtn").disabled = true;
     
-    // Actualizar UI
     document.getElementById("stateVal").textContent = "COLAPSANDO";
     document.getElementById("stateVal").style.color = "#ff6600";
+    
+    // Crear onda gravitacional
+    if (showGravitationalWaves) {
+        gravitationalWaves.push(new GravitationalWave(performance.now()));
+    }
+    
+    // Crear shockwave visual
+    const shockwave = document.createElement("div");
+    shockwave.className = "shockwave";
+    document.body.appendChild(shockwave);
+    setTimeout(() => shockwave.remove(), 2000);
+    
+    // Eyectar partículas
+    for (let i = 0; i < 50; i++) {
+        ejectaParticles.push(new EjectaParticle());
+    }
     
     setTimeout(() => {
         document.getElementById("collapseWarning").style.display = "none";
     }, 2000);
+    
+    // Mostrar hecho científico
+    showFact(7);
 }
 
 function updateCollapse(currentTime) {
@@ -537,22 +747,23 @@ function updateCollapse(currentTime) {
     const elapsed = currentTime - collapseStartTime;
     collapseProgress = Math.min(elapsed / COLLAPSE_DURATION, 1);
     
-    // Actualizar masa durante el colapso
     neutronStar.mass = 1.8 + (M - 1.8) * collapseProgress;
     neutronStar.radius = 60 * (1 - collapseProgress * 0.9);
     neutronStar.rotationSpeed = 30 * (1 + collapseProgress * 20);
     
-    // Actualizar UI
     document.getElementById("massVal").textContent = neutronStar.mass.toFixed(1);
     document.getElementById("radiusVal").textContent = neutronStar.radius.toFixed(1);
     document.getElementById("rotationVal").textContent = Math.floor(neutronStar.rotationSpeed);
     
-    // Cuando el colapso termina
+    // Generar ondas gravitacionales periódicas
+    if (showGravitationalWaves && Math.random() < 0.05) {
+        gravitationalWaves.push(new GravitationalWave(currentTime));
+    }
+    
     if (collapseProgress >= 1) {
         isCollapsing = false;
         isNeutronStar = false;
         
-        // Cambiar a modo agujero negro
         document.getElementById("objectType").textContent = "⚫ AGUJERO NEGRO KERR";
         document.getElementById("stateVal").textContent = "ACTIVO";
         document.getElementById("stateVal").style.color = "#0ff";
@@ -560,12 +771,15 @@ function updateCollapse(currentTime) {
         document.getElementById("massVal").textContent = M;
         document.getElementById("radiusVal").textContent = (rPlus * 2.95).toFixed(1);
         document.getElementById("rotationVal").textContent = "N/A";
-        document.getElementById("specialInfo").innerHTML = '<span class="label warning">⚠ ERGOSFERA:</span><span class="val warning">ACTIVA</span>';
+        document.getElementById("specialInfo").innerHTML = 
+            '<span class="label warning">⚠ ERGOSFERA:</span><span class="val warning">ACTIVA</span>';
         
-        // Crear partículas del disco de acreción
         accretionParticles = Array.from({ length: 3000 }, () => new AccretionParticle());
         
         document.getElementById("info").classList.remove("collapsing");
+        
+        // Mostrar hecho sobre agujeros negros
+        setTimeout(() => showFact(2), 1000);
     }
 }
 
@@ -591,15 +805,17 @@ function animate(time) {
     
     drawStars(time);
     
+    // Ondas gravitacionales
+    if (showGravitationalWaves) {
+        gravitationalWaves = gravitationalWaves.filter(wave => wave.draw(time));
+    }
+    
     if (isNeutronStar || isCollapsing) {
-        // Modo estrella de neutrones
         drawNeutronStar(time);
         
-        // Durante el colapso, empezar a mostrar el agujero negro
         if (collapseProgress > 0.5) {
             ctx.globalAlpha = (collapseProgress - 0.5) * 2;
             
-            // Jets traseros
             jets.forEach(j => {
                 if (j.dir === -1) {
                     j.update();
@@ -609,7 +825,6 @@ function animate(time) {
             
             drawBlackHole();
             
-            // Jets frontales
             jets.forEach(j => {
                 if (j.dir === 1) j.draw();
             });
@@ -617,8 +832,6 @@ function animate(time) {
             ctx.globalAlpha = 1;
         }
     } else {
-        // Modo agujero negro completo
-        // Jets traseros
         jets.forEach(j => {
             if (j.dir === -1) {
                 j.update();
@@ -626,7 +839,6 @@ function animate(time) {
             }
         });
         
-        // Partículas traseras
         accretionParticles.forEach(p => {
             if (Math.sin(p.theta) < -0.1 || p.z < 0) {
                 p.update();
@@ -636,23 +848,35 @@ function animate(time) {
         
         drawBlackHole();
         
-        // Partículas frontales
         accretionParticles.forEach(p => {
             if (Math.sin(p.theta) >= -0.1 && p.z >= 0) p.draw();
         });
         
-        // Jets frontales
         jets.forEach(j => {
             if (j.dir === 1) j.draw();
         });
     }
     
-    // FPS Counter
+    // Partículas eyectadas
+    ejectaParticles = ejectaParticles.filter(p => {
+        p.update();
+        return p.draw();
+    });
+    
+    // FPS
     frameCount++;
     if (time - lastFpsUpdate > 1000) {
         document.getElementById("fps").textContent = frameCount;
         frameCount = 0;
         lastFpsUpdate = time;
+    }
+    
+    // Mostrar hechos periódicamente
+    factTimer++;
+    if (factTimer > 600 && !isCollapsing) { // Cada ~10 segundos
+        showFact(currentFactIndex);
+        currentFactIndex = (currentFactIndex + 1) % facts.length;
+        factTimer = 0;
     }
     
     requestAnimationFrame(animate);
@@ -677,6 +901,8 @@ document.getElementById("resetBtn").addEventListener("click", () => {
     
     neutronParticles = Array.from({ length: 2000 }, () => new NeutronStarParticle());
     accretionParticles = [];
+    ejectaParticles = [];
+    gravitationalWaves = [];
     jets.forEach(j => j.reset());
     
     document.getElementById("objectType").textContent = "⭐ ESTRELLA DE NEUTRONES";
@@ -686,7 +912,8 @@ document.getElementById("resetBtn").addEventListener("click", () => {
     document.getElementById("massVal").textContent = "1.8";
     document.getElementById("radiusVal").textContent = "12";
     document.getElementById("rotationVal").textContent = "30";
-    document.getElementById("specialInfo").innerHTML = '<span class="label">📡 PULSOS:</span><span class="val">DETECTADOS</span>';
+    document.getElementById("specialInfo").innerHTML = 
+        '<span class="label">📡 PULSOS:</span><span class="val">DETECTADOS</span>';
     document.getElementById("collapseBtn").disabled = false;
     document.getElementById("info").classList.remove("collapsing");
 });
@@ -696,14 +923,26 @@ document.getElementById("pauseBtn").addEventListener("click", () => {
     document.getElementById("pauseBtn").textContent = paused ? "REANUDAR" : "PAUSAR";
 });
 
-// Zoom con scroll
+document.getElementById("gwBtn").addEventListener("click", () => {
+    showGravitationalWaves = !showGravitationalWaves;
+    document.getElementById("gwBtn").style.background = showGravitationalWaves ? 
+        "rgba(0, 255, 255, 0.3)" : "rgba(0, 255, 255, 0.1)";
+});
+
+document.getElementById("lensBtn").addEventListener("click", () => {
+    showGravitationalLensing = !showGravitationalLensing;
+    document.getElementById("lensBtn").style.background = showGravitationalLensing ? 
+        "rgba(0, 255, 255, 0.3)" : "rgba(0, 255, 255, 0.1)";
+});
+
+// Zoom
 canvas.addEventListener("wheel", e => {
     e.preventDefault();
     zoom *= e.deltaY < 0 ? 1.1 : 0.9;
     zoom = Math.max(0.3, Math.min(3, zoom));
 });
 
-// Pausa con espacio y colapso con E
+// Teclado
 window.addEventListener("keydown", e => {
     if (e.code === "Space") {
         e.preventDefault();
@@ -711,6 +950,12 @@ window.addEventListener("keydown", e => {
     } else if (e.code === "KeyE") {
         e.preventDefault();
         startCollapse();
+    } else if (e.code === "KeyG") {
+        e.preventDefault();
+        document.getElementById("gwBtn").click();
+    } else if (e.code === "KeyL") {
+        e.preventDefault();
+        document.getElementById("lensBtn").click();
     }
 });
 
