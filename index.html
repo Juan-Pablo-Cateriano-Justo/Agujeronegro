@@ -109,6 +109,11 @@
             box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
         }
         
+        button.active {
+            background: rgba(0, 255, 255, 0.4);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+        }
+        
         button.collapse-btn {
             background: rgba(255, 100, 0, 0.2);
             border-color: #ff6600;
@@ -249,7 +254,7 @@
         <button id="resetBtn">RESETEAR</button>
         <button id="pauseBtn">PAUSAR</button>
         <button id="gwBtn">ONDAS G (G)</button>
-        <button id="lensBtn">LENTE G (L)</button>
+        <button id="lensBtn" class="active">LENTE G (L)</button>
     </div>
 
 <script>
@@ -261,11 +266,12 @@ let width, height, cx, cy;
 let zoom = 1;
 let paused = false;
 
-// Nuevas características
+// Nuevas características - AHORA SON PERMANENTES
 let showGravitationalWaves = false;
-let showGravitationalLensing = true;
+let showGravitationalLensing = true; // Activado por defecto
 let gravitationalWaves = [];
 let ejectaParticles = [];
+let gwWaveTimer = 0; // Timer para generar ondas periódicamente
 
 // Estado de la simulación
 let isNeutronStar = true;
@@ -358,7 +364,7 @@ function drawStars(time) {
         let finalX = s.x;
         let finalY = s.y;
         
-        // Lente gravitacional
+        // Lente gravitacional - EFECTO PERMANENTE cuando está activado
         if (showGravitationalLensing && !isNeutronStar) {
             const dx = s.x - cx;
             const dy = s.y - cy;
@@ -717,7 +723,7 @@ function startCollapse() {
     document.getElementById("stateVal").textContent = "COLAPSANDO";
     document.getElementById("stateVal").style.color = "#ff6600";
     
-    // Crear onda gravitacional
+    // Crear onda gravitacional inicial
     if (showGravitationalWaves) {
         gravitationalWaves.push(new GravitationalWave(performance.now()));
     }
@@ -755,7 +761,7 @@ function updateCollapse(currentTime) {
     document.getElementById("radiusVal").textContent = neutronStar.radius.toFixed(1);
     document.getElementById("rotationVal").textContent = Math.floor(neutronStar.rotationSpeed);
     
-    // Generar ondas gravitacionales periódicas
+    // Generar ondas gravitacionales durante el colapso si están activadas
     if (showGravitationalWaves && Math.random() < 0.05) {
         gravitationalWaves.push(new GravitationalWave(currentTime));
     }
@@ -805,8 +811,16 @@ function animate(time) {
     
     drawStars(time);
     
-    // Ondas gravitacionales
+    // Ondas gravitacionales PERMANENTES - se generan continuamente cuando está activado
     if (showGravitationalWaves) {
+        // Generar nuevas ondas periódicamente
+        gwWaveTimer++;
+        if (gwWaveTimer > 60 && !isNeutronStar) { // Cada ~1 segundo cuando es agujero negro
+            gravitationalWaves.push(new GravitationalWave(time));
+            gwWaveTimer = 0;
+        }
+        
+        // Dibujar todas las ondas activas
         gravitationalWaves = gravitationalWaves.filter(wave => wave.draw(time));
     }
     
@@ -903,6 +917,7 @@ document.getElementById("resetBtn").addEventListener("click", () => {
     accretionParticles = [];
     ejectaParticles = [];
     gravitationalWaves = [];
+    gwWaveTimer = 0;
     jets.forEach(j => j.reset());
     
     document.getElementById("objectType").textContent = "⭐ ESTRELLA DE NEUTRONES";
@@ -923,16 +938,30 @@ document.getElementById("pauseBtn").addEventListener("click", () => {
     document.getElementById("pauseBtn").textContent = paused ? "REANUDAR" : "PAUSAR";
 });
 
+// ONDAS GRAVITACIONALES - EFECTO PERMANENTE
 document.getElementById("gwBtn").addEventListener("click", () => {
     showGravitationalWaves = !showGravitationalWaves;
-    document.getElementById("gwBtn").style.background = showGravitationalWaves ? 
-        "rgba(0, 255, 255, 0.3)" : "rgba(0, 255, 255, 0.1)";
+    const btn = document.getElementById("gwBtn");
+    
+    if (showGravitationalWaves) {
+        btn.classList.add("active");
+        gwWaveTimer = 0; // Reset timer
+    } else {
+        btn.classList.remove("active");
+        gravitationalWaves = []; // Limpiar ondas existentes
+    }
 });
 
+// LENTE GRAVITACIONAL - EFECTO PERMANENTE
 document.getElementById("lensBtn").addEventListener("click", () => {
     showGravitationalLensing = !showGravitationalLensing;
-    document.getElementById("lensBtn").style.background = showGravitationalLensing ? 
-        "rgba(0, 255, 255, 0.3)" : "rgba(0, 255, 255, 0.1)";
+    const btn = document.getElementById("lensBtn");
+    
+    if (showGravitationalLensing) {
+        btn.classList.add("active");
+    } else {
+        btn.classList.remove("active");
+    }
 });
 
 // Zoom
